@@ -259,22 +259,49 @@ Se o servidor for reiniciado, os dados são preservados. Se os arquivos forem ap
 
 ---
 
-## Dúvidas comuns
+##  Dúvidas comuns
 
-**O computador host precisa ficar ligado?**
-Sim. Enquanto o servidor (node server.js) estiver rodando, todos os outros podem acessar. Se o computador desligar ou o terminal fechar, os outros perdem a conexão. Os dados ficam salvos e voltam quando o servidor reiniciar.
+<details>
+<summary><strong>O computador host precisa ficar ligado?</strong></summary>
 
-**Posso acessar de fora da rede (internet)?**
-Não na configuração atual. O sistema funciona apenas na rede local (mesmo Wi-Fi ou cabo). Para acesso pela internet seria necessário um serviço como Railway, Render ou um VPS.
+Sim. Enquanto o servidor (`node server.js`) estiver rodando, todos os outros podem acessar. Se o computador desligar ou o terminal fechar, os outros perdem a conexão. Os dados ficam salvos nos arquivos e voltam quando o servidor reiniciar.
 
-**O que acontece se eu fechar o terminal acidentalmente?**
-Basta abrir o cmd novamente, navegar até a pasta e rodar node server.js. Os dados não são perdidos.
+</details>
 
-**Posso ter mais de um administrador?**
-Sim. Basta entrar como admin, ir em Equipe, editar o funcionário desejado e trocar o perfil para Administrador.
+<details>
+<summary><strong>Posso acessar de fora da rede (internet)?</strong></summary>
 
-**O navegador está mostrando a versão antiga após uma atualização?**
-Pressione Ctrl + Shift + R para forçar o recarregamento sem cache.
+Não na configuração atual. O sistema funciona apenas na rede local (mesmo Wi-Fi ou cabo). Para acesso pela internet seria necessário um serviço como Railway, Render ou uma VPS com IP público.
+
+</details>
+
+<details>
+<summary><strong>O que acontece se eu fechar o terminal acidentalmente?</strong></summary>
+
+Basta abrir o `cmd` novamente, navegar até a pasta com `cd` e rodar `node server.js` de novo. Os dados em `tasks.json` e `users.json` não são perdidos.
+
+</details>
+
+<details>
+<summary><strong>Posso ter mais de um administrador?</strong></summary>
+
+Sim. Basta entrar como admin, ir em **Equipe**, clicar em **Editar** no funcionário desejado e trocar o perfil para **Administrador**.
+
+</details>
+
+<details>
+<summary><strong>O navegador está mostrando a versão antiga após uma atualização?</strong></summary>
+
+Pressione `Ctrl + Shift + R` para forçar o recarregamento sem cache. Isso força o navegador a baixar a versão mais recente do servidor.
+
+</details>
+
+<details>
+<summary><strong>Os usuários mudaram mas o sistema ainda mostra os antigos?</strong></summary>
+
+Pare o servidor com `Ctrl + C`, edite o arquivo `users.json` diretamente com o Bloco de Notas, salve e rode `node server.js` novamente. No navegador pressione `Ctrl + Shift + R`.
+
+</details>
 
 ---
 
