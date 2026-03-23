@@ -1,0 +1,2311 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>TaskFlow Corporate</title>
+
+<!--
+  ╔══════════════════════════════════════════════════════════════╗
+  ║  TASKFLOW CORPORATE — v9 (Modo Servidor)                     ║
+  ║  Versão com Socket.io para múltiplos usuários simultâneos    ║
+  ║  em rede local. Requer server.js rodando (node server.js).   ║
+  ║                                                              ║
+  ║  DEPENDÊNCIAS EXTERNAS                                       ║
+  ║  • Google Fonts: Playfair Display + IBM Plex Sans            ║
+  ║  • Socket.io (carregado do próprio servidor)                 ║
+  ╚══════════════════════════════════════════════════════════════╝
+-->
+
+<!-- Fontes: Playfair Display para títulos/display, IBM Plex Sans para corpo -->
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<!-- Socket.io: carregado automaticamente pelo servidor Node.js -->
+<script src="/socket.io/socket.io.js"></script>
+
+<style>
+/* ================================================================
+   RESET GLOBAL
+   Elimina margens/paddings padrão do navegador e garante que
+   box-sizing:border-box seja aplicado a todos os elementos,
+   facilitando cálculo de tamanhos (padding não expande o elemento).
+================================================================ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+/* ================================================================
+   VARIÁVEIS CSS — TEMA CLARO (padrão)
+   Todas as cores, tamanhos e sombras são definidos aqui como
+   variáveis CSS para facilitar manutenção e troca de tema.
+
+   Nomenclatura:
+   --bg          fundo principal da página
+   --bg2         fundo secundário (hover, inputs de fundo)
+   --surf        superfície de cards e painéis
+   --bdr / --bdr2  bordas normal e reforçada
+   --tx / --tx2 / --tx3  texto primário, secundário, terciário
+   --red/amb/grn/blu  cores semânticas (erro, aviso, sucesso, info)
+     + sufixo -bg  → fundo suave da cor
+     + sufixo -bdr → borda suave da cor
+   --r / --rs    raio de borda padrão e pequeno
+   --sh / --sh2 / --sh3  sombras suave, média e forte
+   --sidebar-w   largura da sidebar (usada em múltiplos lugares)
+   --topbar-h    altura da topbar (usada para padding-top do conteúdo)
+================================================================ */
+:root{
+  --bg:#F4F2EC;--bg2:#EAE7DD;--surf:#FAFAF6;
+  --bdr:#DDD9CE;--bdr2:#C9C4B5;
+  --tx:#18170F;--tx2:#52503F;--tx3:#9A9680;
+  --red:#B83030;--red-bg:#FCF0EE;--red-bdr:#E8C5C0;
+  --amb:#9A5B1E;--amb-bg:#FDF4EA;--amb-bdr:#E8CFA8;
+  --grn:#276645;--grn-bg:#EBF7F0;--grn-bdr:#A8DEC0;
+  --blu:#1A4E8A;--blu-bg:#EDF3FB;--blu-bdr:#A8C4E8;
+  --acc:#6B4FBB;--acc-bg:#F3F0FC;
+  --r:10px;--rs:6px;
+  --sh:0 1px 2px rgba(0,0,0,.06),0 3px 10px rgba(0,0,0,.04);
+  --sh2:0 6px 28px rgba(0,0,0,.12),0 2px 6px rgba(0,0,0,.06);
+  --sh3:0 12px 48px rgba(0,0,0,.18),0 4px 12px rgba(0,0,0,.08);
+  --sidebar-w:220px;
+  --topbar-h:54px;
+}
+
+/* ================================================================
+   VARIÁVEIS CSS — TEMA ESCURO
+   A classe .dark é adicionada ao <html> via JavaScript (toggleTheme).
+   Sobrescreve apenas as variáveis de cor — o restante do CSS
+   permanece igual, reutilizando as mesmas regras com as novas cores.
+================================================================ */
+.dark{
+  --bg:#0F0F0E;--bg2:#1A1918;--surf:#141312;
+  --bdr:#252320;--bdr2:#323028;
+  --tx:#E8E3D8;--tx2:#9C9788;--tx3:#555040;
+  --red:#D95C4A;--red-bg:#1E1108;--red-bdr:#4A2018;
+  --amb:#D4894A;--amb-bg:#1C1308;--amb-bdr:#4A3018;
+  --grn:#4DAF78;--grn-bg:#081610;--grn-bdr:#18482C;
+  --blu:#5B9BD8;--blu-bg:#081020;--blu-bdr:#183050;
+  --acc:#9A7EE8;--acc-bg:#120E20;
+  --sh:0 1px 2px rgba(0,0,0,.4),0 3px 10px rgba(0,0,0,.25);
+  --sh2:0 6px 28px rgba(0,0,0,.55),0 2px 6px rgba(0,0,0,.3);
+  --sh3:0 12px 48px rgba(0,0,0,.7),0 4px 12px rgba(0,0,0,.4);
+}
+
+/* ================================================================
+   BASE — tipografia e elementos globais
+   Playfair Display: fonte serifada para títulos h1-h4 (elegância).
+   IBM Plex Sans: fonte sans-serif para corpo de texto (legibilidade).
+   font-size:14px no html serve como base para o sistema de zoom,
+   que multiplica esse valor via JavaScript (applyZoom).
+================================================================ */
+html{ scroll-behavior:smooth; }
+html,body{
+  background:var(--bg);color:var(--tx);
+  font-family:'IBM Plex Sans',sans-serif;font-size:14px;
+  transition:background .25s,color .25s;
+  min-height:100%;
+}
+h1,h2,h3,h4{ font-family:'Playfair Display',serif; font-weight:400; }
+
+/* ================================================================
+   INPUTS, TEXTAREAS E SELECTS
+   Estilo unificado para todos os controles de formulário.
+   O outline:none remove a borda padrão do navegador ao focar,
+   substituída pela box-shadow customizada no :focus.
+================================================================ */
+input,textarea,select{
+  font-family:'IBM Plex Sans',sans-serif;font-size:13px;
+  border:1px solid var(--bdr);background:var(--surf);color:var(--tx);
+  border-radius:var(--rs);padding:9px 12px;outline:none;width:100%;
+  transition:border-color .15s,box-shadow .15s;
+}
+input:focus,textarea:focus,select:focus{
+  border-color:var(--tx2);
+  box-shadow:0 0 0 3px rgba(100,80,60,.1); /* anel de foco sutil */
+}
+textarea{ resize:vertical;min-height:80px;line-height:1.6 }
+button{ font-family:'IBM Plex Sans',sans-serif;cursor:pointer;border:none;background:none;color:inherit }
+button:disabled{ opacity:.38;cursor:not-allowed;pointer-events:none }
+
+/* Scrollbar customizada — aparência mais discreta em navegadores webkit */
+::-webkit-scrollbar{ width:5px;height:5px }
+::-webkit-scrollbar-thumb{ background:var(--bdr2);border-radius:5px }
+::-webkit-scrollbar-track{ background:transparent }
+
+/* ================================================================
+   UTILITÁRIOS GERAIS
+   Classes reutilizáveis em todo o HTML gerado dinamicamente.
+   .card       → container padrão com fundo, borda e sombra
+   .hidden     → ocultação via display:none (substitui inline styles)
+   .truncate   → corta texto longo com reticências (uma linha)
+   .clamp2     → limita texto a 2 linhas com reticências
+================================================================ */
+.card{ background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);box-shadow:var(--sh) }
+.hidden{ display:none!important }
+.w100{ width:100% }
+.truncate{ overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
+.clamp2{ display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden }
+
+/* ================================================================
+   BADGES (etiquetas de status/prioridade)
+   Elementos inline que exibem rótulos coloridos.
+   Sufixos: -H=alta, -M=média, -L=baixa, -D=neutro, -A=admin,
+            -C=colaborador, -B=azul/info
+================================================================ */
+.bdg{ display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;flex-shrink:0;letter-spacing:.02em }
+.bdg-H{ background:var(--red-bg);color:var(--red);border:1px solid var(--red-bdr) }
+.bdg-M{ background:var(--amb-bg);color:var(--amb);border:1px solid var(--amb-bdr) }
+.bdg-L{ background:var(--grn-bg);color:var(--grn);border:1px solid var(--grn-bdr) }
+.bdg-D{ background:var(--bg2);color:var(--tx3);border:1px solid var(--bdr) }
+.bdg-A{ background:var(--acc-bg);color:var(--acc);border:1px solid rgba(107,79,187,.25) }
+.bdg-C{ background:var(--bg2);color:var(--tx2);border:1px solid var(--bdr) }
+.bdg-B{ background:var(--blu-bg);color:var(--blu);border:1px solid var(--blu-bdr) }
+
+/* Tag menor usada para categorias/labels de tarefas */
+.tag{ font-size:10px;padding:2px 7px;border-radius:4px;background:var(--bg2);color:var(--tx2);font-weight:600;letter-spacing:.03em;border:1px solid var(--bdr) }
+
+/* ================================================================
+   BOTÕES
+   .btn        → base comum (flex, gap, padding, transição)
+   .btn-P      → primário (fundo escuro, texto claro)
+   .btn-G      → ghost/secundário (transparente com borda)
+   .btn-D      → destrutivo (vermelho suave)
+   .btn-GN     → positivo/verde
+   .btn-B      → informativo/azul
+   .btn-sm     → tamanho reduzido
+   .btn-xs     → tamanho mínimo
+   .icon-btn   → botão quadrado para ícones (32x32px)
+================================================================ */
+.btn{ display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--rs);font-size:13px;font-weight:600;transition:all .15s;cursor:pointer;letter-spacing:.01em;flex-shrink:0 }
+.btn-P{ background:var(--tx);color:var(--surf) }.btn-P:hover{ opacity:.82;transform:translateY(-1px) }
+.btn-G{ background:transparent;color:var(--tx2);border:1px solid var(--bdr) }.btn-G:hover{ background:var(--bg2);border-color:var(--bdr2) }
+.btn-D{ background:var(--red-bg);color:var(--red);border:1px solid var(--red-bdr) }.btn-D:hover{ background:#f7deda }
+.btn-GN{ background:var(--grn-bg);color:var(--grn);border:1px solid var(--grn-bdr) }.btn-GN:hover{ background:#d8f0e5 }
+.btn-B{ background:var(--blu-bg);color:var(--blu);border:1px solid var(--blu-bdr) }.btn-B:hover{ background:#d8e8f5 }
+.btn-sm{ padding:5px 11px;font-size:12px }
+.btn-xs{ padding:3px 8px;font-size:11px }
+.icon-btn{ display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:var(--rs);border:1px solid var(--bdr);background:transparent;color:var(--tx2);font-size:14px;cursor:pointer;transition:all .15s;flex-shrink:0 }
+.icon-btn:hover{ background:var(--bg2);border-color:var(--bdr2) }
+
+/* ================================================================
+   NAVEGAÇÃO DA SIDEBAR
+   .nav-item        → botão de navegação lateral
+   .nav-item.on     → estado ativo (página atual)
+   .nav-icon        → ícone à esquerda do label
+   .nav-section-label → rótulo de seção (texto pequeno uppercase)
+================================================================ */
+.nav-item{ width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:13px;font-weight:500;color:var(--tx2);transition:all .12s;margin-bottom:2px;cursor:pointer;text-align:left;border:1px solid transparent }
+.nav-item:hover{ background:var(--bg2);color:var(--tx) }
+.nav-item.on{ background:var(--bg2);color:var(--tx);border-color:var(--bdr) }
+.nav-item .nav-icon{ width:18px;text-align:center;font-size:14px;opacity:.6;flex-shrink:0 }
+.nav-item.on .nav-icon{ opacity:1 }
+.nav-section-label{ font-size:10px;font-weight:600;color:var(--tx3);letter-spacing:.07em;text-transform:uppercase;padding:12px 10px 4px;display:block }
+
+/* ================================================================
+   LAYOUT PRINCIPAL
+   Arquitetura de 3 camadas fixas + conteúdo scrollável:
+
+   ┌──────────┬──────────────────────────────────┐  ← fixo no topo
+   │          │  TOPBAR (position:fixed)          │
+   │ SIDEBAR  ├──────────────────────────────────┤
+   │ (fixed)  │                                  │
+   │          │  #content (scroll normal)         │
+   │          │                                  │
+   └──────────┴──────────────────────────────────┘
+
+   ATENÇÃO: position:fixed em sidebar e topbar só funciona
+   corretamente se NENHUM ancestral tiver transform, filter ou
+   perspective aplicados. Por isso o zoom usa font-size no <html>
+   em vez de transform no wrapper — evita criar novo contexto
+   de posicionamento que quebraria o fixed.
+================================================================ */
+#app{ display:flex;min-height:100vh }
+
+/* Sidebar: fixa na esquerda, altura total da viewport.
+   Ao colapsar (.collapsed), estreita para 60px escondendo labels. */
+#sidebar{
+  width:var(--sidebar-w);
+  background:var(--surf);border-right:1px solid var(--bdr);
+  display:flex;flex-direction:column;
+  position:fixed;top:0;left:0;height:100vh;overflow-y:auto;
+  z-index:300; /* acima do topbar (200) e modal (900) não — modal fica na viewport */
+  transition:width .22s ease,transform .22s ease,background .25s,border-color .25s;
+}
+/* Modo colapsado: oculta todos os textos, mantém apenas ícones */
+#sidebar.collapsed{ width:60px }
+#sidebar.collapsed .nav-label,
+#sidebar.collapsed .nav-section-label,
+#sidebar.collapsed #sb-name,
+#sidebar.collapsed #sb-title,
+#sidebar.collapsed #sb-role-wrap,
+#sidebar.collapsed #presence-bar,
+#sidebar.collapsed .sidebar-logo-text{ display:none }
+#sidebar.collapsed .nav-item{ justify-content:center;padding:8px }
+#sidebar.collapsed .nav-item .nav-icon{ opacity:.8 }
+
+/* Área principal: ocupa o espaço restante depois do sidebar.
+   margin-left igual à largura do sidebar (compensação do fixed). */
+#main{
+  flex:1;
+  margin-left:var(--sidebar-w);
+  transition:margin-left .22s ease;
+  min-height:100vh;
+  display:flex;flex-direction:column;
+}
+#main.sidebar-collapsed{ margin-left:60px }
+
+/* Topbar: fixa no topo, começa onde o sidebar termina.
+   left é atualizado via JS quando o sidebar é colapsado/expandido. */
+#topbar{
+  position:fixed;top:0;
+  left:var(--sidebar-w);right:0;
+  height:var(--topbar-h);
+  background:var(--surf);border-bottom:1px solid var(--bdr);
+  padding:0 20px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  z-index:200;
+  transition:left .22s ease,background .25s,border-color .25s;
+}
+
+/* Área de conteúdo: padding-top compensa a altura fixa da topbar
+   para que o conteúdo não comece escondido atrás dela. */
+#content{
+  flex:1;
+  padding:24px;
+  padding-top:calc(var(--topbar-h) + 20px);
+}
+
+/* ================================================================
+   ANIMAÇÕES
+   .fi  → fade-in com deslize para cima (usado no #content ao navegar)
+   .si  → slide-in da esquerda (usado em comentários)
+   pulse-ring → anel pulsante no indicador de presença online
+   blink      → pisca no ponto de "editando"
+   toastIn    → notificação desliza da direita
+================================================================ */
+@keyframes fi{ from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+@keyframes si{ from{opacity:0;transform:translateX(-6px)} to{opacity:1;transform:none} }
+@keyframes pulse-ring{ 0%{transform:scale(1);opacity:1} 70%{transform:scale(2.4);opacity:0} 100%{transform:scale(2.4);opacity:0} }
+@keyframes blink{ 0%,100%{opacity:1} 50%{opacity:.3} }
+@keyframes toastIn{ from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:none} }
+.fi{ animation:fi .22s ease both }
+.si{ animation:si .18s ease both }
+
+/* ================================================================
+   CARDS DE TAREFA (.tc)
+   A barra colorida à esquerda (::before) indica a prioridade
+   sem depender de ícone — funciona mesmo em modo de alto contraste.
+   A barra só aparece quando a classe pri-* é adicionada ao card.
+================================================================ */
+.tc{ cursor:pointer;transition:box-shadow .18s,transform .16s,border-color .15s;position:relative;overflow:hidden }
+.tc::before{ content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:transparent;transition:background .15s;border-radius:3px 0 0 3px }
+.tc.pri-high::before{ background:var(--red) }
+.tc.pri-medium::before{ background:var(--amb) }
+.tc.pri-low::before{ background:var(--grn) }
+.tc:hover{ box-shadow:var(--sh2);transform:translateY(-2px);border-color:var(--bdr2) }
+.tc.done-card{ opacity:.7 } /* tarefa concluída aparece mais apagada */
+.tc.done-card:hover{ opacity:1 }
+
+/* ================================================================
+   MODAL
+   Overlay semitransparente cobre toda a viewport.
+   .modal-head tem position:sticky para o título permanecer visível
+   ao rolar o conteúdo do modal quando ele é longo.
+   backdrop-filter:blur cria efeito de vidro fosco atrás do modal.
+================================================================ */
+.overlay{ position:fixed;inset:0;background:rgba(0,0,0,.58);z-index:900;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(3px) }
+.modal-box{ width:100%;max-width:660px;max-height:91vh;overflow-y:auto }
+.modal-head{ display:flex;align-items:center;justify-content:space-between;padding:18px 24px;border-bottom:1px solid var(--bdr);position:sticky;top:0;background:var(--surf);z-index:1 }
+.modal-body{ padding:24px }
+.sep{ border:none;border-top:1px solid var(--bdr);margin:18px 0 }
+.modal-section-title{ font-size:11px;font-weight:600;color:var(--tx3);letter-spacing:.08em;margin-bottom:10px;text-transform:uppercase }
+
+/* ================================================================
+   BARRA DE PROGRESSO
+   .prog-track → trilha de fundo (cinza)
+   .prog-bar   → preenchimento colorido com animação suave de largura
+   A transição cubic-bezier simula um leve "bounce" ao preencher.
+================================================================ */
+.prog-track{ flex:1;height:6px;background:var(--bg2);border-radius:8px;overflow:hidden }
+.prog-bar{ height:100%;border-radius:8px;transition:width .8s cubic-bezier(.25,.8,.25,1) }
+
+/* ================================================================
+   CARDS DE ESTATÍSTICA (dashboard)
+   data-icon no HTML é usado pelo ::after para mostrar um símbolo
+   decorativo grande e semitransparente no canto do card.
+================================================================ */
+.stat-grid{ display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:20px }
+.stat-card{ padding:16px 18px;position:relative;overflow:hidden }
+.stat-label{ font-size:10px;color:var(--tx3);font-weight:600;margin-bottom:6px;letter-spacing:.06em;text-transform:uppercase }
+.stat-val{ font-size:32px;font-family:'IBM Plex Sans',sans-serif;line-height:1;margin-bottom:2px;font-weight:600 }
+.stat-sub{ font-size:11px;color:var(--tx3) }
+.stat-card::after{ content:attr(data-icon);position:absolute;right:14px;top:12px;font-size:22px;opacity:.12 }
+
+/* ================================================================
+   TOASTS (notificações temporárias)
+   Empilham no canto inferior direito da tela.
+   pointer-events:none no container evita bloquear cliques,
+   mas os itens individuais têm pointer-events:all para fechar.
+   Desaparecem após ~3.8s via setTimeout no JavaScript.
+================================================================ */
+#toast-area{ position:fixed;bottom:20px;right:20px;z-index:2000;display:flex;flex-direction:column;gap:8px;pointer-events:none }
+.toast-item{ padding:10px 15px;font-size:13px;display:flex;gap:9px;align-items:center;max-width:310px;pointer-events:all;border-radius:var(--r);animation:toastIn .25s ease;background:var(--surf);border:1px solid var(--bdr);box-shadow:var(--sh2) }
+
+/* ================================================================
+   KANBAN BOARD
+   .kb-board  → container com scroll horizontal se colunas forem muitas
+   .kb-col    → coluna fixa de 270px
+   .kb-drop   → área de drop (recebe drag de cards)
+     .over    → estado visual quando um card está sendo arrastado
+                sobre a coluna (fundo azul + borda tracejada)
+================================================================ */
+.kb-board{ display:flex;gap:14px;align-items:flex-start;overflow-x:auto;padding-bottom:12px }
+.kb-col{ flex:0 0 270px;min-width:250px }
+.kb-header{ display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px 12px;border-radius:var(--rs);background:var(--bg2);border:1px solid var(--bdr) }
+.kb-drop{ display:flex;flex-direction:column;gap:8px;min-height:100px;padding:4px;border-radius:var(--r);border:2px dashed transparent;transition:all .15s }
+.kb-drop.over{ background:var(--blu-bg);border-color:var(--blu);padding:8px }
+.kb-drop.over .kb-empty{ display:none } /* oculta placeholder quando arrastando */
+.kb-empty{ font-size:12px;color:var(--tx3);text-align:center;padding:20px 0;font-style:italic }
+
+/* ================================================================
+   CAMPO DE BUSCA
+   O ícone de busca (⌕) é posicionado de forma absoluta à esquerda,
+   e o input tem padding-left para não sobrepor o ícone.
+================================================================ */
+.search-wrap{ position:relative;flex:1 1 180px;max-width:240px }
+.search-wrap .ico{ position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--tx3);font-size:13px;pointer-events:none }
+.search-wrap input{ padding-left:28px;font-size:12px }
+
+/* ================================================================
+   BADGE DE NOTIFICAÇÕES
+   Bolinha vermelha com contador, posicionada sobre o botão de sino.
+   Número maior que 9 é substituído por "9+" no JavaScript.
+================================================================ */
+.notif-wrap{ position:relative }
+.notif-dot{ position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;border-radius:50%;font-size:9px;width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-weight:700;line-height:1 }
+
+/* ================================================================
+   COMENTÁRIOS
+   .cmt-bubble   → balão de comentário com fundo levemente diferente
+   .mention-chip → destaque azul para menções @usuario no texto
+================================================================ */
+.cmt-bubble{ font-size:13px;color:var(--tx2);line-height:1.6;background:var(--bg);border-radius:6px;padding:9px 12px;border:1px solid var(--bdr) }
+.mention-chip{ color:var(--blu);font-weight:600;background:var(--blu-bg);padding:0 3px;border-radius:3px }
+
+/* Caixa de metadados (responsável, prazo) no modal de detalhe */
+.meta-box{ background:var(--bg);border-radius:8px;padding:12px 14px;border:1px solid var(--bdr) }
+
+/* ================================================================
+   INDICADORES DE PRESENÇA (quem está online)
+   Mostrados na sidebar e nos avatares de cards.
+   .online-dot   → ponto verde sólido
+   .online-ring  → anel pulsante animado (mais chamativo)
+   .editing-strip → faixa no rodapé do card quando outro usuário edita
+   .editing-dot  → ponto piscante dentro da faixa de edição
+================================================================ */
+#presence-bar{ padding:8px 12px 12px;border-bottom:1px solid var(--bdr) }
+.presence-title{ font-size:10px;font-weight:600;color:var(--tx3);letter-spacing:.06em;margin-bottom:8px;text-transform:uppercase }
+.presence-row{ display:flex;align-items:center;gap:8px;margin-bottom:6px }
+.online-dot-wrap{ position:relative;flex-shrink:0 }
+.online-dot{ position:absolute;bottom:-1px;right:-1px;width:9px;height:9px;border-radius:50%;background:#22c55e;border:2px solid var(--surf) }
+.online-ring{ position:absolute;bottom:-1px;right:-1px;width:9px;height:9px;border-radius:50%;background:#22c55e;opacity:.5;animation:pulse-ring 2.2s ease-out infinite }
+.editing-strip{ font-size:11px;color:var(--amb);display:flex;align-items:center;gap:6px;padding:5px 10px;background:var(--amb-bg);border-top:1px solid var(--amb-bdr);margin:10px -15px -13px;border-radius:0 0 calc(var(--r) - 1px) calc(var(--r) - 1px) }
+.editing-dot{ width:6px;height:6px;border-radius:50%;background:var(--amb);animation:blink 1.1s ease infinite;flex-shrink:0 }
+
+/* ================================================================
+   POPUP DE MENÇÃO (@usuario)
+   Aparece abaixo do textarea quando o usuário digita @.
+   position:absolute relativo à viewport (calculado via JS com
+   getBoundingClientRect + scrollX/Y).
+   z-index:1100 — acima do modal (900) para funcionar dentro dele.
+================================================================ */
+#mention-popup{ position:absolute;background:var(--surf);border:1px solid var(--bdr);border-radius:var(--rs);box-shadow:var(--sh2);z-index:1100;overflow:hidden;min-width:190px }
+.mention-item{ display:flex;align-items:center;gap:9px;padding:9px 13px;cursor:pointer;font-size:13px;transition:background .1s }
+.mention-item:hover,.mention-item.sel{ background:var(--bg2) }
+
+/* ================================================================
+   CONTROLE DE ZOOM
+   Botões − e + com label de percentual entre eles.
+   O zoom é implementado alterando font-size do <html> no JS,
+   o que escala proporcionalmente todo o layout baseado em em/rem,
+   sem quebrar position:fixed do sidebar e topbar.
+================================================================ */
+#zoom-ctrl{ display:flex;align-items:center;gap:2px;border:1px solid var(--bdr);border-radius:var(--rs);overflow:hidden;flex-shrink:0 }
+#zoom-ctrl button{ width:28px;height:30px;font-size:16px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;color:var(--tx2);cursor:pointer;transition:background .12s;padding:0 }
+#zoom-ctrl button:hover{ background:var(--bg2) }
+#zoom-label{ font-size:11px;font-weight:600;color:var(--tx3);min-width:36px;text-align:center;user-select:none }
+
+/* ================================================================
+   TELA DE LOGIN
+   Centralizada na viewport via flex.
+   Separada do #app — ao fazer login o JS troca a visibilidade
+   entre os dois (login some, #app aparece).
+================================================================ */
+#login-screen{ min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:20px }
+.login-demo-row{ display:flex;align-items:center;gap:9px;padding:6px 8px;cursor:pointer;border-radius:7px;transition:background .12s;border:1px solid transparent }
+.login-demo-row:hover{ background:var(--bg2);border-color:var(--bdr) }
+
+/* ================================================================
+   GRÁFICO DE BARRAS (dashboard — tarefas por membro)
+   Barras geradas dinamicamente pelo JS com altura proporcional.
+   O tooltip via ::after aparece ao passar o mouse sobre a barra,
+   lendo o valor do atributo data-val.
+================================================================ */
+.chart-bar-wrap{ display:flex;align-items:flex-end;gap:6px;height:80px;margin-top:8px }
+.chart-bar{ flex:1;border-radius:4px 4px 0 0;min-width:20px;position:relative;cursor:default }
+.chart-bar:hover::after{ content:attr(data-val);position:absolute;top:-22px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:600;color:var(--tx2);background:var(--surf);border:1px solid var(--bdr);border-radius:4px;padding:2px 6px;white-space:nowrap }
+
+/* ================================================================
+   BOTÕES DE ORDENAÇÃO (lista de tarefas)
+   .sort-btn      → estado inativo (quase invisível)
+   .sort-btn.on   → estado ativo (campo de ordenação selecionado)
+================================================================ */
+.sort-btn{ font-size:11px;padding:4px 8px;border-radius:4px;background:transparent;color:var(--tx3);border:1px solid transparent;cursor:pointer;transition:all .12s;font-weight:500 }
+.sort-btn:hover,.sort-btn.on{ background:var(--bg2);color:var(--tx2);border-color:var(--bdr) }
+.sort-btn.on{ color:var(--tx);font-weight:600 }
+
+/* Ponto colorido indicador de prioridade usado nas barras do dashboard */
+.pri-dot{ width:7px;height:7px;border-radius:50%;flex-shrink:0 }
+
+/* ================================================================
+   ESTADO VAZIO
+   Exibido quando nenhuma tarefa é encontrada com os filtros.
+================================================================ */
+.empty-state{ text-align:center;padding:52px 24px;color:var(--tx3) }
+.empty-state p{ font-size:13px;font-style:italic }
+
+/* ================================================================
+   MODAL DE CONFIRMAÇÃO (exclusão de tarefa)
+   Layout centralizado com botões de ação lado a lado.
+================================================================ */
+.confirm-box{ text-align:center;padding:8px 0 }
+.confirm-box p{ font-size:14px;color:var(--tx2);line-height:1.6;margin-bottom:20px }
+.confirm-actions{ display:flex;gap:8px;justify-content:center }
+
+/* ================================================================
+   MODAL DE ATALHOS DE TECLADO
+   .shortcut-row → linha com descrição à esquerda e teclas à direita
+   kbd           → estilo de tecla de teclado
+================================================================ */
+.shortcut-row{ display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--bg2);font-size:13px }
+.shortcut-row:last-child{ border-bottom:none }
+kbd{ font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;background:var(--bg2);border:1px solid var(--bdr);border-radius:4px;padding:2px 7px;color:var(--tx2) }
+
+/* ================================================================
+   CHIPS DE STATUS (na lista e nos cards)
+   Indicam o estado atual da tarefa com cor semântica.
+   Usados como alternativa mais visível ao badge simples.
+================================================================ */
+.status-chip{ display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px }
+.status-pending{ background:var(--amb-bg);color:var(--amb);border:1px solid var(--amb-bdr) }
+.status-in_progress{ background:var(--blu-bg);color:var(--blu);border:1px solid var(--blu-bdr) }
+.status-done{ background:var(--grn-bg);color:var(--grn);border:1px solid var(--grn-bdr) }
+
+/* ================================================================
+   SELETOR VISUAL DE PRIORIDADE (formulário de tarefa)
+   Substituição do <select> padrão por 3 botões visuais clicáveis.
+   A classe sel-* é adicionada/removida pelo JS (setPriority).
+================================================================ */
+.pri-select-row{ display:flex;gap:8px }
+.pri-opt{ flex:1;border:1px solid var(--bdr);border-radius:var(--rs);padding:8px 10px;cursor:pointer;text-align:center;font-size:12px;font-weight:600;transition:all .12s }
+.pri-opt:hover{ border-color:var(--bdr2);background:var(--bg2) }
+.pri-opt.sel-high{ background:var(--red-bg);border-color:var(--red-bdr);color:var(--red) }
+.pri-opt.sel-medium{ background:var(--amb-bg);border-color:var(--amb-bdr);color:var(--amb) }
+.pri-opt.sel-low{ background:var(--grn-bg);border-color:var(--grn-bdr);color:var(--grn) }
+
+/* ================================================================
+   LINHA DO TEMPO (atividade recente no dashboard)
+   .timeline-item → cada evento com ponto e linha conectora
+   .timeline-dot  → ponto colorido (cor do avatar do usuário)
+   .timeline-line → linha vertical que conecta os pontos
+================================================================ */
+.timeline-item{ display:flex;gap:12px;padding:6px 0;position:relative }
+.timeline-dot{ width:8px;height:8px;border-radius:50%;background:var(--bdr2);flex-shrink:0;margin-top:4px;position:relative;z-index:1 }
+.timeline-line{ position:absolute;left:3px;top:14px;bottom:-6px;width:2px;background:var(--bdr);z-index:0 }
+
+/* ================================================================
+   OVERLAY MOBILE (sidebar)
+   Em telas menores a sidebar se torna um drawer que desliza.
+   Este overlay escurece o conteúdo atrás quando a sidebar está aberta.
+   Clicar nele chama closeMobileSidebar() no JS.
+================================================================ */
+#mobile-overlay{ position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:250;display:none;backdrop-filter:blur(2px) }
+
+/* Botão de tema: texto tipográfico (◑/●) em vez de emoji */
+#theme-toggle{ font-size:15px;font-weight:700;letter-spacing:-.5px }
+
+/* ================================================================
+   RESPONSIVIDADE — MOBILE (≤768px)
+   A sidebar é transformada em drawer offscreen (translateX(-100%)).
+   O conteúdo principal usa a largura total (margin-left:0).
+   A topbar também ocupa toda a largura (left:0).
+================================================================ */
+@media(max-width:768px){
+  #sidebar{ transform:translateX(-100%) } /* oculta sidebar para a esquerda */
+  #sidebar.mobile-open{ transform:translateX(0) } /* abre via JS */
+  #mobile-overlay.show{ display:block }
+  #main{ margin-left:0!important }
+  #topbar{ left:0!important }
+  #content{ padding:16px;padding-top:calc(var(--topbar-h) + 12px) }
+  #topbar{ padding:0 14px }
+  .stat-grid{ grid-template-columns:1fr 1fr } /* 2 colunas em vez de 4 */
+}
+
+/* Botão de abrir sidebar mobile: oculto em telas grandes */
+@media(min-width:769px){
+  #mobile-sidebar-btn{ display:none }
+}
+</style>
+</head>
+<body>
+
+<!--
+  ════════════════════════════════════════════════════════
+  TELA DE LOGIN
+  Exibida no carregamento. Substituída pelo #app após login.
+  Inclui campo de email, mensagem de erro e lista de usuários
+  demo clicáveis. O JS (initLogin) popula #demo-users.
+  ════════════════════════════════════════════════════════
+-->
+<div id="login-screen">
+  <div style="width:100%;max-width:360px">
+    <div style="text-align:center;margin-bottom:32px">
+      <!-- Logotipo: quadrado com iniciais "TF" -->
+      <div style="width:44px;height:44px;background:var(--tx);border-radius:10px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+        <span style="font-size:14px;font-weight:700;color:var(--surf);font-family:'IBM Plex Sans',sans-serif;letter-spacing:-.5px">TF</span>
+      </div>
+      <h1 style="font-size:36px;margin-bottom:5px">TaskFlow</h1>
+      <p style="font-size:13px;color:var(--tx3);font-weight:400">Gestão colaborativa corporativa</p>
+    </div>
+    <div class="card" style="padding:26px">
+      <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:6px;letter-spacing:.04em">EMAIL CORPORATIVO</label>
+      <!-- Enter no input aciona doLogin() diretamente -->
+      <input id="login-email" placeholder="seu@corp.com" autocomplete="email" onkeydown="if(event.key==='Enter')doLogin()"/>
+      <!-- Parágrafo de erro — preenchido pelo JS se email não encontrado -->
+      <p id="login-err" style="font-size:12px;color:var(--red);margin:6px 0 12px;min-height:14px"></p>
+      <button class="btn btn-P w100" style="justify-content:center;padding:10px 16px;font-size:14px" onclick="doLogin()">Entrar &rarr;</button>
+      <div style="margin-top:20px;padding:14px;background:var(--bg);border-radius:8px;border:1px solid var(--bdr)">
+        <p style="font-size:10px;font-weight:600;color:var(--tx3);margin-bottom:10px;letter-spacing:.06em;text-transform:uppercase">Usuários de demonstração</p>
+        <!-- Populado dinamicamente por initLogin() no JS -->
+        <div id="demo-users"></div>
+      </div>
+    </div>
+    <p style="text-align:center;font-size:11px;color:var(--tx3);margin-top:16px">Pressione <kbd>?</kbd> após entrar para ver atalhos</p>
+  </div>
+</div>
+
+<!-- Overlay semitransparente que aparece atrás da sidebar mobile ao abrir -->
+<div id="mobile-overlay" onclick="closeMobileSidebar()"></div>
+
+<!--
+  ════════════════════════════════════════════════════════
+  SHELL DO APLICATIVO
+  Oculto no carregamento (.hidden). Revelado após login bem-sucedido.
+  Contém sidebar + área principal (topbar + conteúdo).
+  ════════════════════════════════════════════════════════
+-->
+<div id="app" class="hidden">
+
+  <!--
+    SIDEBAR (menu lateral fixo)
+    Estrutura:
+    1. Cabeçalho: logo TF + nome do app + botão de colapsar
+    2. #presence-bar: lista de usuários online (atualizada pelo timer de presença)
+    3. <nav>: links de navegação + ações rápidas
+    4. Rodapé: avatar, nome, cargo e botão de logout do usuário logado
+  -->
+  <div id="sidebar" role="navigation" aria-label="Navegação principal">
+
+    <!-- Cabeçalho da sidebar com logo e botão toggle -->
+    <div style="padding:16px 14px 12px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px;flex-shrink:0">
+      <div style="width:28px;height:28px;background:var(--tx);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <span style="font-size:11px;font-weight:700;color:var(--surf);letter-spacing:-.5px;font-family:'IBM Plex Sans',sans-serif">TF</span>
+      </div>
+      <div class="sidebar-logo-text" style="flex:1;min-width:0">
+        <p style="font-size:14px;font-family:'Playfair Display',serif;line-height:1.2">TaskFlow</p>
+        <p style="font-size:10px;color:var(--tx3);font-weight:500">Corporate Edition</p>
+      </div>
+      <!-- Botão que colapsa/expande a sidebar (‹/›). toggleSidebar() no JS -->
+      <button id="sidebar-toggle-btn" class="icon-btn" onclick="toggleSidebar()" title="Recolher menu" style="flex-shrink:0;font-size:16px">&#8249;</button>
+    </div>
+
+    <!-- Barra de presença: mostra quem está online agora.
+         Populada por renderPresence() a cada tick do presenceTimer -->
+    <div id="presence-bar">
+      <p class="presence-title">Online agora</p>
+      <div id="presence-list"></div>
+    </div>
+
+    <!-- Navegação principal e ações rápidas.
+         #nav-links é populado por initApp() com base no role do usuário -->
+    <nav style="padding:8px;flex:1">
+      <span class="nav-section-label">Visões</span>
+      <div id="nav-links"></div><!-- links gerados pelo JS -->
+      <span class="nav-section-label" style="margin-top:4px">Acesso rápido</span>
+      <button class="nav-item" onclick="openNewTask()" style="color:var(--blu)">
+        <span class="nav-icon">+</span><span class="nav-label">Nova tarefa</span>
+      </button>
+      <button class="nav-item" onclick="openShortcutsModal()">
+        <span class="nav-icon" style="font-size:12px">&#9000;</span><span class="nav-label">Atalhos</span>
+      </button>
+    </nav>
+
+    <!-- Rodapé: informações do usuário logado.
+         Preenchido por initApp() após login -->
+    <div style="padding:10px 8px 14px;border-top:1px solid var(--bdr);flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 10px">
+        <div id="sb-avatar"></div><!-- avatar gerado por avHTML() -->
+        <div style="flex:1;min-width:0" class="sidebar-logo-text">
+          <p id="sb-name" class="truncate" style="font-size:12px;font-weight:600"></p>
+          <p id="sb-title" class="truncate" style="font-size:10px;color:var(--tx3)"></p>
+        </div>
+      </div>
+      <div id="sb-role-wrap" style="padding:0 10px 8px"><span id="sb-role" class="bdg" style="font-size:9px;padding:1px 7px"></span></div>
+      <button class="btn btn-G btn-sm w100" style="justify-content:center;font-size:12px" onclick="logout()">&larrhk; Sair</button>
+    </div>
+  </div>
+
+  <!--
+    ÁREA PRINCIPAL
+    Tudo que fica à direita da sidebar.
+    Contém topbar fixa + área de conteúdo scrollável.
+  -->
+  <div id="main">
+
+    <!--
+      TOPBAR (barra superior fixa)
+      Contém: botão mobile, busca, filtros, zoom, tema, notificações e nova tarefa.
+      Os filtros de prioridade/status/usuário disparam renderContent() ao mudar.
+      O filtro de usuário (#filter-as) só aparece para administradores.
+    -->
+    <div id="topbar" role="banner">
+      <!-- Botão visível apenas em mobile — abre a sidebar drawer -->
+      <button id="mobile-sidebar-btn" class="icon-btn" onclick="openMobileSidebar()" aria-label="Abrir menu" style="font-size:18px;font-weight:300">&#8801;</button>
+
+      <!-- Campo de busca com debounce de 180ms (debouncedRender) -->
+      <div class="search-wrap" role="search">
+        <span class="ico" aria-hidden="true">&#8981;</span>
+        <input id="search-input" placeholder="Buscar tarefas…" aria-label="Buscar tarefas" oninput="debouncedRender()"/>
+      </div>
+
+      <!-- Filtros — cada mudança re-renderiza a view atual -->
+      <select id="filter-pri" onchange="renderContent()" style="width:auto;font-size:12px;flex-shrink:0" aria-label="Filtrar por prioridade">
+        <option value="all">Prioridade</option>
+        <option value="high">Alta</option>
+        <option value="medium">Média</option>
+        <option value="low">Baixa</option>
+      </select>
+      <select id="filter-st" onchange="renderContent()" style="width:auto;font-size:12px;flex-shrink:0" aria-label="Filtrar por status">
+        <option value="all">Status</option>
+        <option value="pending">Pendente</option>
+        <option value="in_progress">Em Progresso</option>
+        <option value="done">Concluída</option>
+      </select>
+      <!-- Filtro de usuário: só exibido para admins (controlado por initApp) -->
+      <select id="filter-as" onchange="renderContent()" style="width:auto;font-size:12px;flex-shrink:0;display:none" aria-label="Filtrar por usuário">
+        <option value="all">Usuário</option>
+      </select>
+
+      <!-- Controles do lado direito -->
+      <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
+        <!-- Controle de zoom: altera font-size do html via applyZoom() -->
+        <div id="zoom-ctrl" title="Zoom (Ctrl+= / Ctrl+-)">
+          <button onclick="changeZoom(-1)" aria-label="Diminuir zoom">&minus;</button>
+          <span id="zoom-label">100%</span>
+          <button onclick="changeZoom(+1)" aria-label="Aumentar zoom">+</button>
+        </div>
+        <!-- Alterna tema claro/escuro. ◑=claro, ●=escuro (atualizado pelo JS) -->
+        <button class="icon-btn" id="theme-toggle" onclick="toggleTheme()" title="Alternar tema (Ctrl+Shift+D)" aria-label="Alternar tema">☀️</button>
+        <!-- Notificações: o ponto vermelho (.notif-dot) aparece quando há novas -->
+        <div class="notif-wrap">
+          <button class="icon-btn" onclick="openNotifPanel()" title="Notificações" aria-label="Notificações" style="font-size:16px;font-weight:300">🔔</button>
+          <span id="notif-dot" class="notif-dot hidden" aria-live="polite">0</span>
+        </div>
+        <button class="btn btn-P btn-sm" onclick="openNewTask()">+ Nova tarefa</button>
+      </div>
+    </div>
+
+    <!-- Área de conteúdo scrollável.
+         Preenchida dinamicamente por renderContent() conforme a view ativa. -->
+    <div id="content" role="main" tabindex="-1"></div>
+  </div>
+</div>
+
+<!--
+  MODAL GLOBAL
+  Único modal reutilizado para todos os casos:
+  detalhe de tarefa, formulário, notificações, atalhos, confirmação.
+  O título e conteúdo são trocados via openModal() no JS.
+  Clicar no overlay (.overlay) chama closeModal() para fechar.
+-->
+<div id="modal-overlay" class="overlay hidden" onclick="closeModal(event)" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="card modal-box fi" onclick="event.stopPropagation()">
+    <div class="modal-head">
+      <h3 id="modal-title" style="font-size:17px;line-height:1.3;max-width:80%"></h3>
+      <button class="icon-btn" onclick="closeModalForce()" aria-label="Fechar modal">&#10005;</button>
+    </div>
+    <div id="modal-body" class="modal-body"></div>
+  </div>
+</div>
+
+<!-- Popup de autocomplete para menções @usuario.
+     Posicionado via JS abaixo do textarea onde o @ foi digitado. -->
+<div id="mention-popup" class="hidden" role="listbox" aria-label="Mencionar usuário"></div>
+
+<!-- Container de toasts (notificações temporárias).
+     Novos toasts são criados e removidos pelo JS (função toast()). -->
+<div id="toast-area" aria-live="polite" aria-atomic="true"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   USUÁRIOS
+   Lista local fixa — em produção isso viria do servidor/banco.
+   O servidor identifica usuários pelo userId enviado no evento "join".
+══════════════════════════════════════════════════════════════════ */
+const USERS = [
+  {id:"u1",name:"Ana Beatriz",  email:"ana@corp.com",      role:"admin", title:"Gerente de Projetos",av:"AB",clr:"#1A4E8A"},
+  {id:"u2",name:"Carlos Mendes",email:"carlos@corp.com",   role:"collab",title:"Dev Sênior",          av:"CM",clr:"#276645"},
+  {id:"u3",name:"Fernanda Lima",email:"fernanda@corp.com", role:"collab",title:"Designer UX",         av:"FL",clr:"#7B3494"},
+  {id:"u4",name:"Rafael Torres",email:"rafael@corp.com",   role:"collab",title:"Analista de Dados",   av:"RT",clr:"#9A5B1E"},
+];
+
+/* ══════════════════════════════════════════════════════════════════
+   ESTADO DA APLICAÇÃO
+══════════════════════════════════════════════════════════════════ */
+let me          = null;   // usuário logado
+let currentView = "dashboard";
+let sortBy      = "default";
+let notifications = [], notifCount = 0, modalCloseCallback = null;
+
+// Presença — agora vinda do servidor, não simulada
+let onlineUsers  = new Set();   // userIds online (vindos do servidor)
+let editingTasks = {};          // { taskId: { userId, userName } }
+
+// Tarefas — sincronizadas com o servidor
+let TASKS = [];
+
+let _renderTimer = null, _myEditingTaskId = null;
+
+const ZOOM_STEPS = [60,70,80,90,100,110,120,130,150,175,200];
+let zoomIdx = 4;
+
+const PL  = {high:"Alta",medium:"Média",low:"Baixa"};
+const SL  = {pending:"Pendente",in_progress:"Em Progresso",done:"Concluída"};
+const PBC = {high:"bdg-H",medium:"bdg-M",low:"bdg-L"};
+const SIC = {pending:"●",in_progress:"▶",done:"✓"};
+
+/* ══════════════════════════════════════════════════════════════════
+   SOCKET.IO — CONEXÃO COM O SERVIDOR
+   Conecta automaticamente ao mesmo host que serviu a página.
+   Todos os eventos de sincronização em tempo real passam por aqui.
+══════════════════════════════════════════════════════════════════ */
+const socket = io(); // conecta ao servidor automaticamente
+
+// Recebe estado inicial ao entrar: tarefas + quem está online + quem está editando
+socket.on("init", ({ tasks, online, editing }) => {
+  TASKS       = tasks;
+  onlineUsers = new Set(online.map(u => u.userId));
+  editingTasks = editing;
+  renderContent();
+  renderPresence();
+  toast("Conectado ao servidor", "·", "var(--grn)");
+});
+
+// Outro usuário entrou
+socket.on("user_joined", ({ userId, userName }) => {
+  onlineUsers.add(userId);
+  renderPresence();
+  renderContent();
+  pushNotif(`${userName} entrou`, "→");
+});
+
+// Outro usuário saiu
+socket.on("user_left", ({ userId }) => {
+  onlineUsers.delete(userId);
+  // Remove edições ativas desse usuário
+  Object.keys(editingTasks).forEach(tid => {
+    if (editingTasks[tid]?.userId === userId) delete editingTasks[tid];
+  });
+  renderPresence();
+  renderContent();
+});
+
+// Lista de online atualizada (join/leave)
+socket.on("online_update", (list) => {
+  onlineUsers = new Set(list.map(u => u.userId));
+  renderPresence();
+  renderContent();
+});
+
+// Mapa de edições atualizado
+socket.on("editing_update", (map) => {
+  editingTasks = map;
+  renderPresence();
+  renderContent();
+  // Atualiza modal aberto se for a tarefa em questão
+  const modalOpen = !document.getElementById("modal-overlay").classList.contains("hidden");
+  if (modalOpen) {
+    const title = document.getElementById("modal-title").textContent;
+    const t = TASKS.find(t => t.title === title);
+    if (t) renderTaskDetail(t.id, false);
+  }
+});
+
+// Outra máquina criou uma tarefa
+socket.on("task_created", (task) => {
+  TASKS.unshift(task);
+  renderContent();
+  pushNotif(`Nova tarefa: "${task.title.slice(0,30)}"`, "+");
+});
+
+// Outra máquina atualizou uma tarefa
+socket.on("task_updated", ({ id, patch, histEntry }) => {
+  const idx = TASKS.findIndex(t => t.id === id);
+  if (idx < 0) return;
+  if (histEntry) {
+    TASKS[idx] = { ...TASKS[idx], ...patch, history: [...(TASKS[idx].history||[]), histEntry] };
+  } else {
+    TASKS[idx] = { ...TASKS[idx], ...patch };
+  }
+  renderContent();
+  // Atualiza modal se estiver aberto nessa tarefa
+  const modalOpen = !document.getElementById("modal-overlay").classList.contains("hidden");
+  if (modalOpen) {
+    const mt = document.getElementById("modal-title").textContent;
+    if (mt === TASKS[idx].title) renderTaskDetail(id, false);
+  }
+});
+
+// Outra máquina excluiu uma tarefa
+socket.on("task_deleted", (taskId) => {
+  const t = TASKS.find(t => t.id === taskId);
+  TASKS = TASKS.filter(t => t.id !== taskId);
+  renderContent();
+  // Fecha o modal se estava aberto nessa tarefa
+  const modalOpen = !document.getElementById("modal-overlay").classList.contains("hidden");
+  if (modalOpen && document.getElementById("modal-title").textContent === t?.title) {
+    closeModalForce();
+  }
+  if (t) pushNotif(`Tarefa excluída: "${t.title.slice(0,30)}"`, "×");
+});
+
+/* ══════════════════════════════════════════════════════════════════
+   UTILITÁRIOS
+══════════════════════════════════════════════════════════════════ */
+const uid     = () => Math.random().toString(36).slice(2,9);
+const fDate   = d  => { if(!d) return "—"; return new Date(d+"T00:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short"}); };
+const fTs     = ts => new Date(ts).toLocaleDateString("pt-BR",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});
+const isLate  = (due,st) => due && st!=="done" && new Date(due+"T23:59:59") < new Date();
+const getUser = id => USERS.find(u=>u.id===id);
+const getTask = id => TASKS.find(t=>t.id===id);
+const esc     = s  => String(s).replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+// Não salva mais no localStorage — o servidor persiste os dados
+function saveTasks(){ /* sincronizado via socket */ }
+function loadTasks(){ /* recebido via socket.on("init") */ }
+
+function debouncedRender(){ clearTimeout(_renderTimer); _renderTimer=setTimeout(renderContent,180); }
+
+/* ══════════════════════════════════════════════════════════════════
+   ZOOM
+   Implementado via font-size no <html> (não via CSS transform).
+   Isso preserva o comportamento de position:fixed da sidebar e topbar,
+   já que transform criaria um novo contexto de posicionamento e
+   quebraria os elementos fixos.
+══════════════════════════════════════════════════════════════════ */
+function applyZoom(){
+  const pct = ZOOM_STEPS[zoomIdx];
+  // 14px é o font-size base. Multiplicar por pct/100 escala tudo.
+  document.documentElement.style.fontSize = (14 * pct / 100) + "px";
+  document.getElementById("zoom-label").textContent = pct+"%";
+  try{ localStorage.setItem("tf8_zoom", zoomIdx); }catch(e){}
+}
+function changeZoom(dir){
+  // Garante que o índice fique dentro dos limites do array
+  zoomIdx = Math.max(0, Math.min(ZOOM_STEPS.length-1, zoomIdx+dir));
+  applyZoom();
+}
+function loadZoom(){
+  try{ const s=localStorage.getItem("tf8_zoom"); if(s!==null) zoomIdx=+s; }catch(e){}
+  applyZoom();
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   AVATAR
+   Gera o HTML de um avatar circular com iniciais do usuário.
+   Se showOnline=true e o usuário está online, exibe o anel verde.
+   sz controla o tamanho em pixels (padrão 32).
+══════════════════════════════════════════════════════════════════ */
+function avHTML(u, sz=32, showOnline=false){
+  if(!u) return `<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:var(--bdr2);flex-shrink:0"></div>`;
+  const online = showOnline && onlineUsers.has(u.id);
+  return `<div style="position:relative;flex-shrink:0;width:${sz}px;height:${sz}px" title="${esc(u.name)}">
+    <div style="width:${sz}px;height:${sz}px;border-radius:50%;background:${u.clr};display:flex;align-items:center;justify-content:center;font-size:${Math.round(sz*.36)}px;font-weight:700;color:#fff;user-select:none;letter-spacing:-.5px">${esc(u.av)}</div>
+    ${online ? `<div class="online-ring"></div><div class="online-dot"></div>` : ""}
+  </div>`;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   TOASTS (notificações temporárias)
+   Cria um elemento toast, adiciona ao #toast-area e o remove após
+   3.8 segundos com uma animação de saída suave.
+   ic  → ícone/símbolo (string)
+   clr → cor da borda esquerda
+══════════════════════════════════════════════════════════════════ */
+function toast(msg, ic="·", clr="var(--grn)"){
+  const el = document.createElement("div");
+  el.className = "toast-item";
+  el.style.borderLeft = `3px solid ${clr}`;
+  el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${clr}">${ic}</span><span style="flex:1;line-height:1.4">${esc(msg)}</span><button onclick="this.parentElement.remove()" style="color:var(--tx3);font-size:16px;padding:0 0 0 6px">&times;</button>`;
+  document.getElementById("toast-area").appendChild(el);
+  // Remove com fade-out após 3.8s
+  setTimeout(()=>{
+    el.style.opacity="0"; el.style.transform="translateX(10px)"; el.style.transition="all .3s";
+    setTimeout(()=>el.remove(), 350);
+  }, 3800);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   NOTIFICAÇÕES
+   Sistema de notificações persistente (durante a sessão).
+   pushNotif  → adiciona notificação e atualiza o badge
+   clearNotifBadge → zera o contador e marca todas como lidas
+   openNotifPanel  → abre o modal listando as notificações
+══════════════════════════════════════════════════════════════════ */
+function pushNotif(msg, icon="·"){
+  notifications.unshift({id:uid(), msg, icon, ts:Date.now(), read:false});
+  if(notifications.length > 50) notifications = notifications.slice(0, 50); // limita histórico
+  notifCount++;
+  const dot = document.getElementById("notif-dot");
+  dot.textContent = notifCount > 9 ? "9+" : notifCount; // mostra máximo "9+"
+  dot.classList.remove("hidden");
+}
+function clearNotifBadge(){
+  notifCount = 0;
+  notifications.forEach(n => n.read = true);
+  document.getElementById("notif-dot").classList.add("hidden");
+}
+function openNotifPanel(){
+  clearNotifBadge();
+  const rows = notifications.slice(0,20).map(n=>`
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:11px 0;border-bottom:1px solid var(--bg2)">
+      <span style="font-size:13px;font-weight:700;color:var(--tx3);width:20px;text-align:center;flex-shrink:0">${esc(n.icon)}</span>
+      <div style="flex:1">
+        <p style="font-size:13px;line-height:1.5;color:var(--tx2)">${esc(n.msg)}</p>
+        <p style="font-size:11px;color:var(--tx3);margin-top:3px">${fTs(n.ts)}</p>
+      </div>
+    </div>`).join("") || `<div class="empty-state"><p>Sem notificações no momento.</p></div>`;
+  openModal("Notificações", `<div>${rows}</div>`, null);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   MODAL
+   Sistema de modal único e reutilizável.
+   openModal    → define título, conteúdo HTML, callback de fechamento
+   closeModal   → fecha apenas se o clique foi no overlay (não no box)
+   closeModalForce → fecha incondicionalmente (botão X, Esc, ações)
+   escClose     → handler para fechar com Esc (adicionado/removido dinamicamente)
+══════════════════════════════════════════════════════════════════ */
+function openModal(title, html, onClose){
+  document.getElementById("modal-title").textContent = title;
+  document.getElementById("modal-body").innerHTML = html;
+  document.getElementById("modal-overlay").classList.remove("hidden");
+  modalCloseCallback = onClose || null;
+  document.addEventListener("keydown", escClose);
+  // Foca o primeiro elemento interativo do modal (acessibilidade)
+  setTimeout(()=>{
+    const f = document.getElementById("modal-body").querySelector("input,select,textarea,button");
+    if(f) f.focus();
+  }, 60);
+}
+function closeModal(e){
+  // Só fecha se o clique foi diretamente no overlay (não em filhos)
+  if(e && e.target !== document.getElementById("modal-overlay")) return;
+  closeModalForce();
+}
+function closeModalForce(){
+  stopEditingTask();  // para o indicador de edição
+  hideMentionPopup(); // fecha popup de @menção se aberto
+  document.getElementById("modal-overlay").classList.add("hidden");
+  document.getElementById("modal-body").innerHTML = "";
+  document.removeEventListener("keydown", escClose);
+  if(modalCloseCallback) modalCloseCallback();
+  modalCloseCallback = null;
+}
+function escClose(e){ if(e.key === "Escape") closeModalForce(); }
+
+/* ══════════════════════════════════════════════════════════════════
+   SIDEBAR — COLAPSAR E MOBILE
+   toggleSidebar → alterna entre expandido e colapsado (desktop)
+     Além de trocar a classe .collapsed, ajusta o margin-left do
+     #main e o left do #topbar para reposicionar corretamente.
+   openMobileSidebar / closeMobileSidebar → drawer em mobile
+══════════════════════════════════════════════════════════════════ */
+function toggleSidebar(){
+  const sb = document.getElementById("sidebar");
+  const mn = document.getElementById("main");
+  const tb = document.getElementById("topbar");
+  sb.classList.toggle("collapsed");
+  mn.classList.toggle("sidebar-collapsed");
+  const col = sb.classList.contains("collapsed");
+  tb.style.left = col ? "60px" : "var(--sidebar-w)"; // reposiciona topbar
+  // Troca símbolo do botão (‹ expandido / › colapsado)
+  document.getElementById("sidebar-toggle-btn").innerHTML = col ? "&#8250;" : "&#8249;";
+}
+function openMobileSidebar(){
+  document.getElementById("sidebar").classList.add("mobile-open");
+  document.getElementById("mobile-overlay").classList.add("show");
+}
+function closeMobileSidebar(){
+  document.getElementById("sidebar").classList.remove("mobile-open");
+  document.getElementById("mobile-overlay").classList.remove("show");
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   PRESENÇA REAL (via servidor)
+   Ao contrário da versão standalone, a presença agora é real:
+   o servidor mantém quem está conectado e notifica todos via socket.
+   startPresence → envia evento "join" ao servidor após login
+   stopPresence  → desconexão é detectada automaticamente pelo servidor
+══════════════════════════════════════════════════════════════════ */
+function startPresence(){
+  // Anuncia ao servidor que este usuário entrou
+  socket.emit("join", {
+    userId:    me.id,
+    userName:  me.name,
+    userTitle: me.title,
+  });
+}
+function stopPresence(){
+  // O servidor detecta a desconexão automaticamente via socket.on("disconnect")
+  // Não precisamos emitir nada explicitamente no logout
+}
+function startEditingTask(taskId){
+  if(_myEditingTaskId===taskId) return;
+  stopEditingTask();
+  _myEditingTaskId = taskId;
+  socket.emit("editing_start", taskId); // avisa o servidor
+}
+function stopEditingTask(){
+  if(_myEditingTaskId){
+    socket.emit("editing_stop", _myEditingTaskId); // avisa o servidor
+    _myEditingTaskId = null;
+  }
+}
+function renderPresence(){
+  const list = document.getElementById("presence-list");
+  if(!list) return;
+  const arr = USERS.filter(u=>onlineUsers.has(u.id));
+  list.innerHTML = arr.map(u=>{
+    const etid = Object.keys(editingTasks).find(tid=>editingTasks[tid]?.userId===u.id);
+    return `<div class="presence-row">
+      <div class="online-dot-wrap">${avHTML(u,24)}<div class="online-ring"></div><div class="online-dot"></div></div>
+      <div style="flex:1;min-width:0">
+        <p class="truncate" style="font-size:12px;font-weight:600">${esc(u.id===me.id ? u.name+" (você)" : u.name)}</p>
+        ${etid
+          ? `<p style="font-size:10px;color:var(--amb);display:flex;align-items:center;gap:3px"><span class="editing-dot"></span>editando…</p>`
+          : `<p class="truncate" style="font-size:10px;color:var(--tx3)">${esc(u.title)}</p>`}
+      </div>
+    </div>`;
+  }).join("") || `<p style="font-size:11px;color:var(--tx3);font-style:italic">Ninguém online agora</p>`;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   LOGIN
+   initLogin  → renderiza a lista de usuários demo clicáveis
+   clickDemoUser → preenche o campo de email ao clicar em um demo
+   doLogin    → valida o email, seta `me`, inicializa o app
+   logout     → limpa o estado e volta para a tela de login
+══════════════════════════════════════════════════════════════════ */
+function initLogin(){
+  document.getElementById("demo-users").innerHTML = USERS.map(u=>`
+    <div class="login-demo-row" onclick="clickDemoUser('${esc(u.email)}')" role="button" tabindex="0"
+      onkeydown="if(event.key==='Enter'||event.key===' ')clickDemoUser('${esc(u.email)}')">
+      ${avHTML(u,22)}
+      <div style="flex:1;min-width:0">
+        <p class="truncate" style="font-size:12px;font-weight:600">${esc(u.name)}</p>
+        <p class="truncate" style="font-size:11px;color:var(--tx3)">${esc(u.email)}</p>
+      </div>
+      <span class="bdg ${u.role==="admin"?"bdg-A":"bdg-C"}" style="font-size:9px;padding:1px 6px">${u.role==="admin"?"Admin":"Collab"}</span>
+    </div>`).join("");
+}
+function clickDemoUser(email){
+  document.getElementById("login-email").value = email;
+  document.getElementById("login-err").textContent = "";
+  document.getElementById("login-email").focus();
+}
+function doLogin(){
+  const email = document.getElementById("login-email").value.trim().toLowerCase();
+  const u = USERS.find(x=>x.email.toLowerCase()===email);
+  if(!u){ document.getElementById("login-err").textContent="Email não encontrado."; return; }
+  me = u;
+  document.getElementById("login-screen").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+  initApp();
+  toast(`Bem-vindo(a), ${me.name.split(" ")[0]}!`, "→", "var(--blu)");
+  startPresence();
+}
+function logout(){
+  stopPresence();
+  me = null; currentView = "dashboard"; sortBy = "default";
+  document.getElementById("app").classList.add("hidden");
+  document.getElementById("login-screen").classList.remove("hidden");
+  document.getElementById("login-email").value = "";
+  document.getElementById("login-err").textContent = "";
+  document.getElementById("search-input").value = "";
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   INICIALIZAÇÃO DO APP (pós-login)
+   Preenche a sidebar com dados do usuário logado.
+   Gera os links de navegação (admin vê "Todas as tarefas", collab não).
+   Exibe o filtro de usuário apenas para admins.
+══════════════════════════════════════════════════════════════════ */
+function initApp(){
+  document.getElementById("sb-avatar").innerHTML = avHTML(me,30,true);
+  document.getElementById("sb-name").textContent = me.name;
+  document.getElementById("sb-title").textContent = me.title;
+  const roleEl = document.getElementById("sb-role");
+  roleEl.textContent = me.role==="admin" ? "Administrador" : "Colaborador";
+  roleEl.className = `bdg ${me.role==="admin"?"bdg-A":"bdg-C"}`;
+  roleEl.style.cssText = "font-size:9px;padding:1px 7px";
+
+  // Gera links de navegação filtrados por permissão
+  const navDefs = [
+    {id:"dashboard", label:"Dashboard",       icon:"&#9632;"},
+    {id:"all",       label:"Todas as tarefas",icon:"&#8801;", adminOnly:true},
+    {id:"mine",      label:"Minhas tarefas",  icon:"&#9675;"},
+    {id:"kanban",    label:"Kanban Board",    icon:"&#9638;"},
+    {id:"team",      label:"Equipe",          icon:"&#9786;", adminOnly:true},
+  ].filter(n => !n.adminOnly || me.role==="admin");
+
+  document.getElementById("nav-links").innerHTML = navDefs.map(n=>`
+    <button class="nav-item${currentView===n.id?" on":""}" onclick="setView('${n.id}')" id="nav-${n.id}" aria-current="${currentView===n.id?"page":"false"}">
+      <span class="nav-icon">${n.icon}</span><span class="nav-label">${n.label}</span>
+    </button>`).join("");
+
+  // Filtro de usuário: visível apenas para admins
+  const fas = document.getElementById("filter-as");
+  if(me.role==="admin"){
+    fas.style.display = "";
+    fas.innerHTML = `<option value="all">Usuário</option>`
+      + USERS.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join("");
+  } else { fas.style.display = "none"; }
+
+  // Reseta filtros ao entrar
+  document.getElementById("filter-pri").value = "all";
+  document.getElementById("filter-st").value = "all";
+  renderContent();
+}
+
+// Troca a view ativa, reseta ordenação e atualiza estados visuais dos nav-items
+function setView(v){
+  currentView = v; sortBy = "default";
+  document.querySelectorAll(".nav-item").forEach(el=>{
+    el.classList.remove("on"); el.setAttribute("aria-current","false");
+  });
+  const nb = document.getElementById(`nav-${v}`);
+  if(nb){ nb.classList.add("on"); nb.setAttribute("aria-current","page"); }
+  renderContent();
+  closeMobileSidebar(); // fecha drawer em mobile ao navegar
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   FILTROS E ORDENAÇÃO
+   getFiltered → aplica todos os filtros ativos e retorna as tarefas
+   que devem aparecer na view atual, já ordenadas conforme sortBy.
+
+   Filtros aplicados em sequência (todos devem passar):
+   1. Prioridade (#filter-pri)
+   2. Status (#filter-st)
+   3. Usuário (#filter-as) — apenas para admins
+   4. View "mine" → apenas tarefas do usuário logado
+   5. Busca textual (title + desc + tags + nome do responsável)
+
+   Ordenações disponíveis:
+   - default  → atrasadas primeiro, depois por status
+   - priority → alta > média > baixa
+   - due      → prazo mais próximo primeiro
+   - title    → alfabética pt-BR
+   - status   → pendente > em progresso > concluída
+══════════════════════════════════════════════════════════════════ */
+function getFiltered(){
+  const q   = (document.getElementById("search-input")?.value||"").toLowerCase().trim();
+  const pri = document.getElementById("filter-pri")?.value||"all";
+  const st  = document.getElementById("filter-st")?.value||"all";
+  const as  = document.getElementById("filter-as")?.value||"all";
+
+  let tasks = TASKS.filter(t=>{
+    if(pri!=="all" && t.priority!==pri) return false;
+    if(st!=="all"  && t.status!==st)   return false;
+    if(as!=="all"  && t.assignee!==as) return false;
+    if(currentView==="mine" && t.assignee!==me.id) return false;
+    if(q && !t.title.toLowerCase().includes(q) &&
+       !(t.desc||"").toLowerCase().includes(q) &&
+       !(t.tags||[]).join(" ").toLowerCase().includes(q) &&
+       !(getUser(t.assignee)?.name||"").toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  // Aplica ordenação
+  const sp = {high:0,medium:1,low:2};
+  const ss = {pending:0,in_progress:1,done:2};
+  if(sortBy==="priority")    tasks.sort((a,b)=>sp[a.priority]-sp[b.priority]);
+  else if(sortBy==="due")    tasks.sort((a,b)=>(a.due||"9999")>(b.due||"9999")?1:-1);
+  else if(sortBy==="title")  tasks.sort((a,b)=>a.title.localeCompare(b.title,"pt-BR"));
+  else if(sortBy==="status") tasks.sort((a,b)=>ss[a.status]-ss[b.status]);
+  else { // padrão: atrasadas primeiro, depois por status
+    tasks.sort((a,b)=>{
+      const la=isLate(a.due,a.status)?-1:0, lb=isLate(b.due,b.status)?-1:0;
+      if(la!==lb) return la-lb;
+      return ss[a.status]-ss[b.status];
+    });
+  }
+  return tasks;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   RENDER PRINCIPAL
+   Decide qual view renderizar e injeta o HTML no #content.
+   Compara o novo HTML com o anterior para evitar re-render
+   desnecessário (otimização simples sem virtual DOM).
+   A animação .fi é re-disparada ao trocar o conteúdo.
+══════════════════════════════════════════════════════════════════ */
+function renderContent(){
+  const c = document.getElementById("content");
+  if(!c || !me) return;
+  let next = "";
+  if(currentView==="dashboard")               next = renderDashboard();
+  else if(currentView==="all"||currentView==="mine") next = renderList();
+  else if(currentView==="kanban")             next = renderKanban();
+  else if(currentView==="team")               next = renderTeam();
+  if(next !== c.innerHTML){
+    c.innerHTML = next;
+    c.classList.remove("fi"); void c.offsetWidth; c.classList.add("fi");
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   DASHBOARD
+   View principal com visão geral do projeto.
+   Seções geradas:
+   1. Saudação + data atual
+   2. Grid de 4 stat cards (pendentes, concluídas, alta prior., atraso)
+   3. Grid de 2 colunas:
+      - Progresso geral (barra + barras por prioridade + gráfico de barras)
+      - Equipe (lista de membros com % de conclusão)
+   4. Grid de 2 colunas:
+      - Minhas tarefas pendentes (até 5)
+      - Atividade recente (últimos 6 eventos do histórico)
+══════════════════════════════════════════════════════════════════ */
+function renderDashboard(){
+  const done  = TASKS.filter(t=>t.status==="done").length;
+  const pend  = TASKS.filter(t=>t.status==="pending").length;
+  const inpr  = TASKS.filter(t=>t.status==="in_progress").length;
+  const high  = TASKS.filter(t=>t.priority==="high" && t.status!=="done").length;
+  const late  = TASKS.filter(t=>isLate(t.due,t.status)).length;
+  const total = TASKS.length;
+  const pct   = total ? Math.round(done/total*100) : 0;
+  const myPend = TASKS.filter(t=>t.assignee===me.id && t.status!=="done");
+  const dayStr = new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+
+  const stats = [
+    {label:"PENDENTES",   val:pend, sub:`+${inpr} em progresso`, clr:"var(--amb)", icon:"—"},
+    {label:"CONCLUÍDAS",  val:done, sub:`${pct}% do total`,       clr:"var(--grn)", icon:"✓"},
+    {label:"ALTA PRIOR.", val:high, sub:"não concluídas",         clr:"var(--red)", icon:"!"},
+    {label:"EM ATRASO",   val:late, sub:late>0?"atenção!":"em dia!", clr:late>0?"var(--red)":"var(--tx3)", icon:"△"},
+  ];
+
+  // Gráfico de barras: altura proporcional ao total de tarefas do membro
+  const maxT = Math.max(...USERS.map(u=>TASKS.filter(t=>t.assignee===u.id).length), 1);
+  const chartBars = USERS.map(u=>{
+    const ut = TASKS.filter(t=>t.assignee===u.id);
+    const ud = ut.filter(t=>t.status==="done").length;
+    const h  = Math.round((ut.length/maxT)*70)+10; // altura mínima de 10px
+    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px">
+      <div class="chart-bar" data-val="${ud}/${ut.length} concluídas" style="height:${h}px;width:100%;background:${u.clr};opacity:.75;border-radius:5px 5px 0 0;transition:opacity .2s" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='.75'"></div>
+      <div style="font-size:10px;color:var(--tx3)">${u.av}</div>
+    </div>`;
+  }).join("");
+
+  // Barras de progresso por prioridade
+  const priBars = ["high","medium","low"].map(p=>{
+    const tot = TASKS.filter(t=>t.priority===p).length;
+    const dn  = TASKS.filter(t=>t.priority===p && t.status==="done").length;
+    const pp  = tot ? Math.round(dn/tot*100) : 0;
+    const cc  = {high:"var(--red)",medium:"var(--amb)",low:"var(--grn)"};
+    return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:9px">
+      <div style="display:flex;align-items:center;gap:5px;min-width:50px">
+        <div class="pri-dot" style="background:${cc[p]}"></div>
+        <span style="font-size:11px;color:var(--tx3)">${PL[p]}</span>
+      </div>
+      <div class="prog-track"><div class="prog-bar" style="width:${pp}%;background:${cc[p]}"></div></div>
+      <span style="font-size:11px;font-weight:600;color:var(--tx2);min-width:32px;text-align:right">${dn}/${tot}</span>
+    </div>`;
+  }).join("");
+
+  // Lista da equipe com progresso individual
+  const teamRows = USERS.map(u=>{
+    const ut = TASKS.filter(t=>t.assignee===u.id);
+    const ud = ut.filter(t=>t.status==="done").length;
+    const pp = ut.length ? Math.round(ud/ut.length*100) : 0;
+    const editing = Object.keys(editingTasks).find(tid=>editingTasks[tid]===u.id);
+    return `<div style="display:flex;align-items:center;gap:9px;margin-bottom:12px">
+      ${avHTML(u,28,true)}
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+          <p class="truncate" style="font-size:12px;font-weight:600">${esc(u.name)}</p>
+          ${onlineUsers.has(u.id) ? `<span style="width:6px;height:6px;border-radius:50%;background:#22c55e;flex-shrink:0"></span>` : ""}
+          ${editing ? `<span class="editing-dot"></span>` : ""}
+        </div>
+        <div class="prog-track" style="height:3px"><div class="prog-bar" style="width:${pp}%;background:${u.clr}"></div></div>
+      </div>
+      <div style="text-align:right">
+        <span style="font-size:12px;font-weight:600;color:var(--tx2)">${pp}%</span>
+        <p style="font-size:10px;color:var(--tx3)">${ud}/${ut.length}</p>
+      </div>
+    </div>`;
+  }).join("");
+
+  // Minhas tarefas pendentes (até 5; botão "Ver todas" se houver mais)
+  const myPendHTML = myPend.length > 0
+    ? myPend.slice(0,5).map(t=>`
+        <div class="card tc pri-${t.priority}" onclick="openTaskDetail('${t.id}')" style="padding:10px 14px 10px 18px;display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div style="flex:1;min-width:0">
+            <p class="truncate" style="font-size:13px;font-weight:500">${esc(t.title)}</p>
+            <p style="font-size:11px;color:var(--tx3);margin-top:2px">${SL[t.status]}</p>
+          </div>
+          <span class="bdg ${PBC[t.priority]}">${PL[t.priority]}</span>
+          <span style="font-size:11px;color:${isLate(t.due,t.status)?"var(--red)":"var(--tx3)"};font-weight:${isLate(t.due,t.status)?600:400};flex-shrink:0">${fDate(t.due)}</span>
+        </div>`).join("")
+    : `<div style="text-align:center;padding:28px;background:var(--grn-bg);border-radius:var(--r);border:1px solid var(--grn-bdr)">
+        <p style="font-size:13px;color:var(--grn);font-weight:600">Todas as tarefas estão em dia.</p>
+       </div>`;
+
+  // Linha do tempo de atividade recente (últimos 6 eventos de history)
+  const activity = [...TASKS]
+    .flatMap(t=>(t.history||[]).map(h=>({...h, taskTitle:t.title, taskId:t.id})))
+    .sort((a,b)=>b.ts-a.ts).slice(0,6);
+
+  const actHTML = activity.map((h,i)=>{
+    const u = getUser(h.u);
+    return `<div class="timeline-item">
+      ${i < activity.length-1 ? `<div class="timeline-line"></div>` : ""}
+      <div class="timeline-dot" style="background:${u?.clr||"var(--bdr2)"}"></div>
+      <div style="flex:1;min-width:0;padding-bottom:2px">
+        <p style="font-size:12px;color:var(--tx2);line-height:1.4"><span style="font-weight:600">${esc(u?.name||"?")}</span> ${esc(h.a)} em &ldquo;<span style="cursor:pointer;text-decoration:underline;text-decoration-color:var(--bdr2)" onclick="openTaskDetail('${h.taskId}')">${esc(h.taskTitle)}</span>&rdquo;</p>
+        <p style="font-size:10px;color:var(--tx3);margin-top:1px">${fTs(h.ts)}</p>
+      </div>
+    </div>`;
+  }).join("") || `<p style="font-size:12px;color:var(--tx3);font-style:italic">Sem atividade recente.</p>`;
+
+  return `
+    <h2 style="font-size:26px;margin-bottom:4px">Olá, ${esc(me.name.split(" ")[0])}</h2>
+    <p style="font-size:13px;color:var(--tx3);margin-bottom:24px;text-transform:capitalize">${dayStr}</p>
+    <div class="stat-grid">${stats.map(s=>`<div class="card stat-card" data-icon="${s.icon}"><p class="stat-label">${s.label}</p><p class="stat-val" style="color:${s.clr}">${s.val}</p><p class="stat-sub">${s.sub}</p></div>`).join("")}</div>
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-bottom:18px">
+      <div class="card" style="padding:18px 20px">
+        <p style="font-size:12px;font-weight:600;margin-bottom:4px;color:var(--tx2)">Progresso geral</p>
+        <p style="font-size:11px;color:var(--tx3);margin-bottom:12px">${done} de ${total} concluídas</p>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <div class="prog-track" style="height:10px"><div class="prog-bar" style="width:${pct}%;background:var(--grn)"></div></div>
+          <span style="font-size:18px;font-family:'IBM Plex Sans',sans-serif;color:var(--grn);min-width:44px;font-weight:700">${pct}%</span>
+        </div>
+        ${priBars}
+        <div class="chart-bar-wrap">${chartBars}</div>
+        <p style="font-size:10px;color:var(--tx3);text-align:center;margin-top:4px">tarefas por membro</p>
+      </div>
+      <div class="card" style="padding:18px 20px">
+        <p style="font-size:12px;font-weight:600;margin-bottom:14px;color:var(--tx2)">Equipe</p>
+        ${teamRows}
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:14px">
+      <div>
+        <p style="font-size:12px;font-weight:600;margin-bottom:10px;color:var(--tx2)">Minhas tarefas pendentes</p>
+        ${myPendHTML}
+        ${myPend.length>5 ? `<button class="btn btn-G btn-sm" onclick="setView('mine')" style="width:100%;justify-content:center;margin-top:4px">Ver todas (${myPend.length})</button>` : ""}
+      </div>
+      <div>
+        <p style="font-size:12px;font-weight:600;margin-bottom:10px;color:var(--tx2)">Atividade recente</p>
+        <div class="card" style="padding:14px 16px">${actHTML}</div>
+      </div>
+    </div>`;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   INDICADOR DE EDIÇÃO NO CARD
+   Retorna uma faixa âmbar no rodapé do card quando outro usuário
+   está editando aquela tarefa. Não exibe para o próprio usuário.
+══════════════════════════════════════════════════════════════════ */
+function editingStripHTML(taskId){
+  const ed = editingTasks[taskId];
+  if(!ed || ed.userId===me.id) return "";
+  return `<div class="editing-strip"><div class="editing-dot"></div><span>${esc(ed.userName)} está editando…</span></div>`;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   HTML DO CARD DE TAREFA
+   Componente reutilizado na lista e no kanban.
+   draggable=true ativa o drag-and-drop (apenas no kanban).
+   A barra de prioridade (::before) é controlada pela classe pri-*.
+   O indicador de edição é adicionado se outro usuário está editando.
+══════════════════════════════════════════════════════════════════ */
+function taskCardHTML(t, draggable=false){
+  const u  = getUser(t.assignee);
+  const od = isLate(t.due, t.status);
+  const drag = draggable ? `draggable="true" ondragstart="dragStart(event,'${t.id}')"` : "";
+  return `
+    <div class="card tc pri-${t.priority}${t.status==="done"?" done-card":""}" ${drag}
+      onclick="openTaskDetail('${t.id}')"
+      style="padding:13px 15px 13px 18px;margin-bottom:${draggable?0:8}px;overflow:hidden"
+      role="article" tabindex="0"
+      onkeydown="if(event.key==='Enter')openTaskDetail('${t.id}')"
+      aria-label="${esc(t.title)}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:7px">
+        <span style="font-size:13px;font-weight:500;line-height:1.45;color:${t.status==="done"?"var(--tx3)":"var(--tx)"};text-decoration:${t.status==="done"?"line-through":"none"}">${esc(t.title)}</span>
+        <span class="bdg ${PBC[t.priority]}" style="flex-shrink:0">${PL[t.priority]}</span>
+      </div>
+      ${t.desc ? `<p class="clamp2" style="font-size:12px;color:var(--tx3);margin-bottom:8px;line-height:1.55">${esc(t.desc)}</p>` : ""}
+      ${t.tags?.length ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:9px">${t.tags.map(tg=>`<span class="tag">${esc(tg)}</span>`).join("")}</div>` : ""}
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+        <div style="display:flex;align-items:center;gap:6px">${avHTML(u,22,true)}<span style="font-size:11px;color:var(--tx3)">${esc(u?.name||"—")}</span></div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          ${t.comments?.length ? `<span style="font-size:11px;color:var(--tx3)">&#8226; ${t.comments.length}</span>` : ""}
+          ${t.due ? `<span style="font-size:11px;color:${od?"var(--red)":"var(--tx3)"};font-weight:${od?600:400}">${od?"! ":""}${fDate(t.due)}</span>` : ""}
+          <span class="status-chip status-${t.status}">${SIC[t.status]} ${SL[t.status]}</span>
+        </div>
+      </div>
+      ${editingStripHTML(t.id)}
+    </div>`;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   VIEW DE LISTA (Todas as tarefas / Minhas tarefas)
+   Exibe tarefas filtradas em lista vertical com opções de ordenação.
+   clearFilters → reseta todos os filtros e volta para o padrão.
+══════════════════════════════════════════════════════════════════ */
+function renderList(){
+  const filtered = getFiltered();
+  const title = currentView==="mine" ? "Minhas tarefas" : "Todas as tarefas";
+  const sortOpts = [
+    {v:"default",  l:"Padrão"},
+    {v:"priority", l:"Prioridade"},
+    {v:"due",      l:"Prazo"},
+    {v:"title",    l:"Título"},
+    {v:"status",   l:"Status"},
+  ];
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+      <div>
+        <h2 style="font-size:22px">${title}</h2>
+        <p style="font-size:12px;color:var(--tx3);margin-top:2px">${filtered.length} tarefa${filtered.length!==1?"s":""} encontrada${filtered.length!==1?"s":""}</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--tx3);font-weight:500">Ordenar:</span>
+        ${sortOpts.map(o=>`<button class="sort-btn${sortBy===o.v?" on":""}" onclick="sortBy='${o.v}';renderContent()">${o.l}</button>`).join("")}
+      </div>
+    </div>
+    ${filtered.length===0
+      ? `<div class="empty-state"><p>Nenhuma tarefa encontrada com os filtros atuais.</p><button class="btn btn-G btn-sm" onclick="clearFilters()" style="margin-top:12px">Limpar filtros</button></div>`
+      : filtered.map(t=>taskCardHTML(t)).join("")}`;
+}
+function clearFilters(){
+  document.getElementById("filter-pri").value = "all";
+  document.getElementById("filter-st").value  = "all";
+  const fas = document.getElementById("filter-as"); if(fas) fas.value = "all";
+  document.getElementById("search-input").value = "";
+  sortBy = "default"; renderContent();
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   VIEW KANBAN
+   Três colunas (Pendente / Em Progresso / Concluída) com drag-and-drop.
+   WIP Limit: se o número de cards em "Em Progresso" exceder o limite,
+   o contador fica vermelho (aviso visual, não bloqueio).
+   dragStart → registra o card sendo arrastado
+   dropTask  → move o card para a nova coluna (atualiza status)
+══════════════════════════════════════════════════════════════════ */
+function renderKanban(){
+  const filtered = getFiltered();
+  const cols = [
+    {s:"pending",     title:"Pendente",    clr:"var(--amb)", icon:"○", limit:8},
+    {s:"in_progress", title:"Em Progresso",clr:"var(--blu)", icon:"▶", limit:5},
+    {s:"done",        title:"Concluída",   clr:"var(--grn)", icon:"✓", limit:null},
+  ];
+  return `
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+      <h2 style="font-size:22px">Kanban Board</h2>
+      <p style="font-size:12px;color:var(--tx3)">${filtered.length} tarefa${filtered.length!==1?"s":""} visível${filtered.length!==1?"is":""}</p>
+    </div>
+    <div class="kb-board">
+      ${cols.map(c=>{
+        const tasks = filtered.filter(t=>t.status===c.s);
+        const over  = c.limit && tasks.length > c.limit; // WIP limit atingido
+        return `<div class="kb-col">
+          <div class="kb-header">
+            <span style="font-size:12px">${c.icon}</span>
+            <span style="font-size:12px;font-weight:700;color:${c.clr}">${c.title}</span>
+            <span style="font-size:11px;background:var(--bg);border:1px solid var(--bdr);border-radius:20px;padding:1px 8px;font-weight:600;margin-left:auto;color:${over?"var(--red)":"var(--tx3)"}">${tasks.length}${c.limit?"/"+c.limit:""}</span>
+          </div>
+          <!-- Área de drop: muda visual quando um card é arrastado sobre ela -->
+          <div class="kb-drop" id="kbcol-${c.s}" data-status="${c.s}"
+            ondragover="event.preventDefault();this.classList.add('over')"
+            ondragleave="this.classList.remove('over')"
+            ondrop="dropTask(event,'${c.s}')"
+            role="group" aria-label="Coluna ${c.title}">
+            ${tasks.map(t=>taskCardHTML(t,true)).join("")}
+            <div class="kb-empty">Arraste tarefas aqui</div>
+          </div>
+        </div>`;
+      }).join("")}
+    </div>`;
+}
+// Variável global para rastrear o card sendo arrastado
+let draggingId = null;
+function dragStart(e, id){
+  draggingId = id;
+  e.dataTransfer.setData("tid", id);
+  e.dataTransfer.effectAllowed = "move";
+}
+function dropTask(e, status){
+  e.preventDefault();
+  e.currentTarget.classList.remove("over");
+  const id = e.dataTransfer.getData("tid") || draggingId;
+  draggingId = null;
+  if(!id) return;
+  const t = getTask(id);
+  if(!t || t.status===status) return; // sem mudança de status
+  // Verifica permissão: admin, criador ou responsável podem mover
+  const canEdit = me.role==="admin" || t.creator===me.id || t.assignee===me.id;
+  if(!canEdit){ toast("Sem permissão para mover esta tarefa","!","var(--red)"); return; }
+  updateTask(id, {status}, `movida → "${SL[status]}"`);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   SISTEMA DE MENÇÕES (@usuario)
+   Quando o usuário digita @ em um textarea, o popup de autocomplete
+   aparece com a lista de usuários filtrada pelo texto após o @.
+   Suporta navegação por teclado (↑↓) e seleção com Enter/Tab.
+
+   mentionState → objeto que guarda o estado atual da menção ativa:
+     active      → se o popup está aberto
+     query       → texto digitado após o @
+     startPos    → posição do @ no textarea
+     textareaId  → id do textarea onde está sendo digitado
+     selectedIdx → índice do item selecionado no popup
+
+   setupMentionTextarea → ativa o sistema em um textarea específico
+   extractMentions      → encontra todos @nomes no texto
+   renderCommentText    → formata o texto substituindo @nomes por chips
+══════════════════════════════════════════════════════════════════ */
+let mentionState = {active:false, query:"", startPos:0, textareaId:null, selectedIdx:0};
+
+function getMatchingUsers(q){ return USERS.filter(u=>u.name.toLowerCase().includes(q.toLowerCase())); }
+
+function showMentionPopup(ta, users){
+  const popup = document.getElementById("mention-popup");
+  const rect  = ta.getBoundingClientRect();
+  popup.innerHTML = users.map((u,i)=>`
+    <div class="mention-item${i===mentionState.selectedIdx?" sel":""}" onclick="insertMention('${u.id}')" role="option">
+      ${avHTML(u,22)}
+      <div><p style="font-size:12px;font-weight:600">${esc(u.name)}</p><p style="font-size:10px;color:var(--tx3)">${esc(u.title)}</p></div>
+    </div>`).join("");
+  // Posiciona o popup abaixo do textarea, alinhado à esquerda
+  popup.style.left  = (rect.left + window.scrollX) + "px";
+  popup.style.top   = (rect.bottom + window.scrollY + 5) + "px";
+  popup.classList.remove("hidden");
+}
+function hideMentionPopup(){
+  document.getElementById("mention-popup").classList.add("hidden");
+  mentionState.active = false;
+}
+function insertMention(userId){
+  const u  = getUser(userId); if(!u) return;
+  const ta = document.getElementById(mentionState.textareaId); if(!ta) return;
+  const before = ta.value.slice(0, mentionState.startPos);
+  const after  = ta.value.slice(ta.selectionStart);
+  ta.value = before + `@${u.name} ` + after;
+  ta.focus();
+  const pos = before.length + u.name.length + 2;
+  ta.setSelectionRange(pos, pos);
+  hideMentionPopup();
+}
+function setupMentionTextarea(tid){
+  const ta = document.getElementById(tid); if(!ta) return;
+  ta.addEventListener("input", ()=>{
+    const val=ta.value, pos=ta.selectionStart, chunk=val.slice(0,pos);
+    const atIdx = chunk.lastIndexOf("@");
+    if(atIdx===-1){ hideMentionPopup(); return; }
+    const query = chunk.slice(atIdx+1);
+    if(/\s/.test(query)){ hideMentionPopup(); return; } // espaço = fim da menção
+    const m = getMatchingUsers(query);
+    if(!m.length){ hideMentionPopup(); return; }
+    mentionState = {active:true, query, startPos:atIdx, textareaId:tid, selectedIdx:0};
+    showMentionPopup(ta, m);
+  });
+  ta.addEventListener("keydown", e=>{
+    if(!mentionState.active) return;
+    const m = getMatchingUsers(mentionState.query);
+    if(e.key==="ArrowDown"){   e.preventDefault(); mentionState.selectedIdx=Math.min(mentionState.selectedIdx+1,m.length-1); showMentionPopup(ta,m); }
+    else if(e.key==="ArrowUp"){ e.preventDefault(); mentionState.selectedIdx=Math.max(mentionState.selectedIdx-1,0);         showMentionPopup(ta,m); }
+    else if(e.key==="Enter"||e.key==="Tab"){ e.preventDefault(); if(m[mentionState.selectedIdx]) insertMention(m[mentionState.selectedIdx].id); }
+    else if(e.key==="Escape") hideMentionPopup();
+  });
+}
+// Fecha o popup ao clicar fora dele
+document.addEventListener("click", e=>{
+  const mp = document.getElementById("mention-popup");
+  if(mp && !mp.contains(e.target)) hideMentionPopup();
+});
+// Retorna array de IDs de usuários mencionados no texto
+function extractMentions(text){
+  return USERS.filter(u=>text.includes(`@${u.name}`)).map(u=>u.id);
+}
+// Converte @NomeUsuario em chip HTML colorido
+function renderCommentText(text){
+  let html = esc(text);
+  USERS.forEach(u=>{
+    html = html.replace(
+      new RegExp(`@${u.name.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}`, "g"),
+      `<span class="mention-chip">@${esc(u.name)}</span>`
+    );
+  });
+  return html;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   DETALHE DA TAREFA (modal)
+   Abre um modal com todas as informações da tarefa:
+   - Badges de prioridade, status e atraso
+   - Descrição
+   - Metadados (responsável, prazo, criador)
+   - Tags
+   - Botões de ação (iniciar, concluir, reabrir, editar, excluir)
+     → visíveis conforme permissão (admin / criador / responsável)
+   - Banner de edição simultânea (se outro usuário está editando)
+   - Comentários com menções renderizadas
+   - Formulário de novo comentário com @menção
+   - Histórico de ações
+══════════════════════════════════════════════════════════════════ */
+function openTaskDetail(id){ renderTaskDetail(id, false); }
+
+function renderTaskDetail(taskId, editing){
+  const t  = getTask(taskId); if(!t) return;
+  const as = getUser(t.assignee), cr = getUser(t.creator);
+  const od = isLate(t.due, t.status);
+
+  // Permissões: admin pode tudo; criador/responsável podem editar/concluir
+  const canEdit = me.role==="admin" || t.creator===me.id || t.assignee===me.id;
+  const canDel  = me.role==="admin" || t.creator===me.id;
+
+  // Modo edição: abre formulário no mesmo modal
+  if(editing){
+    startEditingTask(taskId);
+    openModal("Editar tarefa", renderTaskForm(t), ()=>stopEditingTask());
+    bindFormEvents(taskId, true);
+    return;
+  }
+
+  // Botões de ação conforme estado e permissão
+  const btns = [];
+  if(canEdit && t.status==="pending")   btns.push(`<button class="btn btn-B btn-sm" onclick="changeStatus('${taskId}','in_progress')">&#9654; Iniciar</button>`);
+  if(canEdit && t.status!=="done")      btns.push(`<button class="btn btn-GN btn-sm" onclick="changeStatus('${taskId}','done')">Concluir</button>`);
+  if(canEdit && t.status==="done")      btns.push(`<button class="btn btn-G btn-sm" onclick="changeStatus('${taskId}','pending')">&larrhk; Reabrir</button>`);
+  if(canEdit)                           btns.push(`<button class="btn btn-G btn-sm" onclick="renderTaskDetail('${taskId}',true)">Editar</button>`);
+  if(canDel)                            btns.push(`<button class="btn btn-D btn-sm" onclick="confirmDeleteTask('${taskId}')">Excluir</button>`);
+
+  // Banner âmbar se outro usuário está editando agora
+  const edId = editingTasks[taskId];
+  const edU  = edId && edId!==me.id ? getUser(edId) : null;
+  const editBanner = edU ? `<div style="display:flex;align-items:center;gap:9px;padding:9px 12px;background:var(--amb-bg);border-radius:var(--rs);margin-bottom:16px;border:1px solid var(--amb-bdr);font-size:12px;color:var(--amb)">
+    <div class="editing-dot"></div>${avHTML(edU,20)}<span><strong>${esc(edU.name)}</strong> está editando esta tarefa agora…</span></div>` : "";
+
+  // Comentários renderizados com @menções destacadas
+  const comments = (t.comments||[]).map(c=>{
+    const u = getUser(c.author);
+    return `<div class="si" style="display:flex;gap:10px;margin-bottom:14px">
+      ${avHTML(u,28,true)}
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;gap:8px;align-items:baseline;margin-bottom:4px">
+          <span style="font-size:13px;font-weight:600">${esc(u?.name||"?")}</span>
+          <span style="font-size:11px;color:var(--tx3)">${fTs(c.ts)}</span>
+        </div>
+        <div class="cmt-bubble">${renderCommentText(c.text)}</div>
+      </div>
+    </div>`;
+  }).join("");
+
+  // Histórico em ordem reversa (mais recente primeiro)
+  const history = (t.history||[]).slice().reverse().map(h=>{
+    const u = getUser(h.u);
+    return `<div style="display:flex;gap:9px;align-items:center;font-size:12px;color:var(--tx3);padding:6px 0;border-bottom:1px solid var(--bg2)">
+      ${avHTML(u,18)}<span style="color:var(--tx2);font-weight:500">${esc(u?.name||"?")}</span>
+      <span>${esc(h.a)}</span><span style="margin-left:auto;flex-shrink:0;font-size:11px">${fTs(h.ts)}</span>
+    </div>`;
+  }).join("");
+
+  const html = `${editBanner}
+    <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px">
+      <span class="bdg ${PBC[t.priority]}">${PL[t.priority]}</span>
+      <span class="status-chip status-${t.status}">${SIC[t.status]} ${SL[t.status]}</span>
+      ${od ? `<span class="bdg bdg-H">! Atrasada</span>` : ""}
+    </div>
+    ${t.desc ? `<p style="font-size:13px;color:var(--tx2);line-height:1.7;margin-bottom:16px;padding:12px 14px;background:var(--bg);border-radius:var(--rs);border:1px solid var(--bdr)">${esc(t.desc)}</p>` : ""}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+      <div class="meta-box">
+        <p class="modal-section-title">Responsável</p>
+        <div style="display:flex;align-items:center;gap:9px">${avHTML(as,28,true)}
+          <div><p style="font-size:13px;font-weight:600">${esc(as?.name||"—")}</p><p style="font-size:11px;color:var(--tx3)">${esc(as?.title||"")}</p></div>
+        </div>
+      </div>
+      <div class="meta-box">
+        <p class="modal-section-title">Prazo</p>
+        <p style="font-size:22px;font-family:'IBM Plex Sans',sans-serif;font-weight:600;color:${od?"var(--red)":"var(--tx)"}">${fDate(t.due)||"—"}</p>
+        <p style="font-size:11px;color:var(--tx3);margin-top:3px">Criada por ${esc(cr?.name||"?")}</p>
+      </div>
+    </div>
+    ${t.tags?.length ? `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px">${t.tags.map(tg=>`<span class="tag">${esc(tg)}</span>`).join("")}</div>` : ""}
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:20px">${btns.join("")}</div>
+    <hr class="sep"/>
+    <p class="modal-section-title">Comentários (${(t.comments||[]).length})</p>
+    ${comments}
+    ${!comments ? `<p style="font-size:12px;color:var(--tx3);font-style:italic;margin-bottom:12px">Sem comentários ainda. Seja o primeiro!</p>` : ""}
+    <div style="display:flex;gap:9px;margin-top:10px;align-items:flex-start">
+      ${avHTML(me,28)}
+      <div style="flex:1;position:relative">
+        <textarea id="cmt-input" placeholder="Adicionar comentário… use @nome para mencionar" style="font-size:13px;min-height:64px;line-height:1.6" aria-label="Novo comentário"></textarea>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:7px">
+          <p style="font-size:11px;color:var(--tx3)">Ctrl+Enter para enviar</p>
+          <button class="btn btn-P btn-sm" onclick="addComment('${taskId}')">Comentar</button>
+        </div>
+      </div>
+    </div>
+    <hr class="sep"/>
+    <p class="modal-section-title">Histórico</p>
+    ${history || `<p style="font-size:12px;color:var(--tx3);font-style:italic">Sem histórico.</p>`}`;
+
+  openModal(t.title, html, ()=>stopEditingTask());
+
+  // Configura @menção e Ctrl+Enter no textarea de comentário após render
+  setTimeout(()=>{
+    const inp = document.getElementById("cmt-input");
+    if(inp){
+      inp.addEventListener("keydown", e=>{ if(e.key==="Enter" && (e.ctrlKey||e.metaKey)) addComment(taskId); });
+      setupMentionTextarea("cmt-input");
+    }
+  }, 60);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   FORMULÁRIO DE TAREFA (criar e editar)
+   renderTaskForm → gera o HTML do formulário.
+     init=null → modo criação (sem valores pré-preenchidos)
+     init=task → modo edição (campos preenchidos com dados da tarefa)
+     Em modo edição, exibe também o campo de Status.
+   validateTitle   → validação inline do título (mínimo 3 chars)
+   setPriority     → atualiza o seletor visual de prioridade
+   bindFormEvents  → adiciona o handler de submit ao botão
+   openNewTask     → abre o modal de criação
+══════════════════════════════════════════════════════════════════ */
+let _formPriority = "medium"; // estado da prioridade selecionada no form
+
+function renderTaskForm(init){
+  _formPriority = init?.priority || "medium";
+  return `<div style="display:flex;flex-direction:column;gap:14px">
+    <div>
+      <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:5px;letter-spacing:.04em">TÍTULO *</label>
+      <input id="f-title" value="${esc(init?.title||"")}" placeholder="Descreva a tarefa brevemente…" autocomplete="off" oninput="validateTitle()"/>
+      <p id="f-title-err" style="font-size:11px;color:var(--red);margin-top:4px;min-height:14px"></p>
+    </div>
+    <div>
+      <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:5px;letter-spacing:.04em">DESCRIÇÃO</label>
+      <textarea id="f-desc" placeholder="Contexto, critérios de aceite, links úteis…">${esc(init?.desc||"")}</textarea>
+    </div>
+    <div>
+      <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:8px;letter-spacing:.04em">PRIORIDADE</label>
+      <!-- Seletor visual: 3 botões com estilo colorido ao selecionar -->
+      <div class="pri-select-row">
+        <div class="pri-opt${_formPriority==="high"?" sel-high":""}"   onclick="setPriority('high')"   data-pri="high">Alta</div>
+        <div class="pri-opt${_formPriority==="medium"?" sel-medium":""}" onclick="setPriority('medium')" data-pri="medium">Média</div>
+        <div class="pri-opt${_formPriority==="low"?" sel-low":""}"    onclick="setPriority('low')"    data-pri="low">Baixa</div>
+      </div>
+      <input type="hidden" id="f-priority" value="${_formPriority}"/>
+    </div>
+    ${init ? `<div>
+      <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:5px;letter-spacing:.04em">STATUS</label>
+      <select id="f-status">
+        <option value="pending"     ${init.status==="pending"?     "selected":""}>Pendente</option>
+        <option value="in_progress" ${init.status==="in_progress"? "selected":""}>Em Progresso</option>
+        <option value="done"        ${init.status==="done"?        "selected":""}>Concluída</option>
+      </select>
+    </div>` : ""}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div>
+        <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:5px;letter-spacing:.04em">PRAZO</label>
+        <!-- min= impede selecionar datas passadas -->
+        <input type="date" id="f-due" value="${esc(init?.due||"")}" min="${new Date().toISOString().slice(0,10)}"/>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:5px;letter-spacing:.04em">RESPONSÁVEL</label>
+        <select id="f-assignee">${USERS.map(u=>`<option value="${u.id}" ${(init?.assignee||me.id)===u.id?"selected":""}>${esc(u.name)}</option>`).join("")}</select>
+      </div>
+    </div>
+    <div>
+      <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:5px;letter-spacing:.04em">TAGS <span style="font-weight:400;color:var(--tx3)">(separadas por vírgula)</span></label>
+      <input id="f-tags" value="${esc((init?.tags||[]).join(", "))}" placeholder="design, backend, urgente…"/>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:6px;border-top:1px solid var(--bdr)">
+      <button class="btn btn-G" onclick="closeModalForce()">Cancelar</button>
+      <button class="btn btn-P" id="f-submit">${init ? "Salvar alterações" : "Criar tarefa"}</button>
+    </div>
+  </div>`;
+}
+
+function validateTitle(){
+  const t = document.getElementById("f-title").value.trim();
+  const e = document.getElementById("f-title-err");
+  if(!e) return true;
+  if(!t){ e.textContent="Título obrigatório"; return false; }
+  if(t.length<3){ e.textContent="Mínimo 3 caracteres"; return false; }
+  e.textContent=""; return true;
+}
+
+function setPriority(p){
+  _formPriority = p;
+  document.getElementById("f-priority").value = p;
+  // Remove e re-aplica a classe de seleção em todos os botões
+  document.querySelectorAll(".pri-opt").forEach(el=>{
+    el.className = "pri-opt";
+    if(el.dataset.pri===p) el.classList.add(`sel-${p}`);
+  });
+}
+
+function bindFormEvents(editId, isEdit){
+  // setTimeout evita race condition com o render do modal
+  setTimeout(()=>{
+    const btn = document.getElementById("f-submit"); if(!btn) return;
+    btn.addEventListener("click", ()=>{
+      if(!validateTitle()){ document.getElementById("f-title").focus(); return; }
+      const data = {
+        title:    document.getElementById("f-title").value.trim(),
+        desc:     document.getElementById("f-desc").value.trim(),
+        priority: document.getElementById("f-priority").value,
+        due:      document.getElementById("f-due").value || null,
+        assignee: document.getElementById("f-assignee").value,
+        tags:     document.getElementById("f-tags").value.split(",").map(t=>t.trim()).filter(Boolean),
+      };
+      if(isEdit){
+        const s = document.getElementById("f-status");
+        if(s) data.status = s.value;
+        updateTask(editId, data, "editada");
+      } else {
+        createTask(data);
+      }
+      closeModalForce();
+    });
+    // Ctrl+Enter também submete o formulário
+    document.getElementById("modal-body").addEventListener("keydown", e=>{
+      if(e.key==="Enter" && (e.ctrlKey||e.metaKey)) btn.click();
+    });
+  }, 30);
+}
+
+function openNewTask(){ openModal("Nova tarefa", renderTaskForm(null), null); bindFormEvents(null, false); }
+
+/* ══════════════════════════════════════════════════════════════════
+   CRUD DE TAREFAS
+   createTask       → cria nova tarefa, adiciona ao topo da lista,
+                      salva e dispara notificações
+   updateTask       → aplica patch parcial a uma tarefa existente,
+                      registra no histórico, salva e re-renderiza.
+                      silent=true evita o toast (uso interno, ex: comentários)
+   confirmDeleteTask → abre modal de confirmação antes de excluir
+   deleteTask       → remove definitivamente do array e salva
+   changeStatus     → atalho para updateTask mudando apenas o status
+   addComment       → adiciona comentário, processa @menções, salva
+══════════════════════════════════════════════════════════════════ */
+function createTask(data){
+  const t = {
+    id:uid(), ...data,
+    status:"pending", creator:me.id,
+    comments:[], history:[{a:"criada", u:me.id, ts:Date.now()}]
+  };
+  TASKS.unshift(t);     // atualiza localmente de imediato (otimistic update)
+  socket.emit("task_create", t); // envia ao servidor → replica para todos
+  pushNotif(`Tarefa criada: "${t.title.slice(0,35)}"`, "+");
+  toast(`Tarefa criada: "${t.title.slice(0,28)}"`, "+", "var(--grn)");
+  renderContent();
+}
+
+function updateTask(id, patch, histMsg, silent=false){
+  const idx = TASKS.findIndex(t=>t.id===id); if(idx<0) return;
+  const t = TASKS[idx];
+  const histEntry = histMsg ? {a:histMsg, u:me.id, ts:Date.now()} : null;
+  if(histEntry){
+    TASKS[idx] = {...t, ...patch, history:[...(t.history||[]), histEntry]};
+  } else {
+    TASKS[idx] = {...t, ...patch};
+  }
+  // Notifica se o responsável mudou
+  if(patch.assignee && patch.assignee!==t.assignee){
+    const nu = getUser(patch.assignee);
+    if(nu && nu.id!==me.id) pushNotif(`${me.name} te atribuiu: "${t.title.slice(0,30)}"`, "→");
+  }
+  socket.emit("task_update", { id, patch, histEntry }); // sincroniza com todos
+  if(!silent && histMsg) toast(histMsg, "·", "var(--blu)");
+  renderContent();
+  const modalOpen = !document.getElementById("modal-overlay").classList.contains("hidden");
+  if(modalOpen){
+    const mt = document.getElementById("modal-title").textContent;
+    if(mt===t.title||mt===TASKS[idx].title) renderTaskDetail(id,false);
+  }
+}
+
+function confirmDeleteTask(id){
+  const t = getTask(id); if(!t) return;
+  openModal("Confirmar exclusão", `<div class="confirm-box">
+    <p style="font-size:13px;font-weight:600;color:var(--red);letter-spacing:.05em;text-transform:uppercase;margin-bottom:12px">Ação irreversível</p>
+    <p>Tem certeza que deseja excluir<br><strong>"${esc(t.title)}"</strong>?</p>
+    <div class="confirm-actions" style="margin-top:20px">
+      <button class="btn btn-G" onclick="closeModalForce()">Cancelar</button>
+      <button class="btn btn-D" onclick="deleteTask('${id}')">Excluir definitivamente</button>
+    </div>
+  </div>`, null);
+}
+
+function deleteTask(id){
+  const t = getTask(id);
+  TASKS = TASKS.filter(t=>t.id!==id);
+  socket.emit("task_delete", id); // sincroniza com todos
+  closeModalForce();
+  toast(`"${(t?.title||"Tarefa").slice(0,28)}" excluída`, "×", "var(--red)");
+  renderContent();
+}
+
+function changeStatus(id, status){ updateTask(id, {status}, `status → "${SL[status]}"`); }
+
+function addComment(taskId){
+  const inp = document.getElementById("cmt-input");
+  const txt = inp?.value?.trim(); if(!txt){ inp?.focus(); return; }
+  const t = getTask(taskId); if(!t) return;
+  const c = {id:uid(), author:me.id, text:txt, ts:Date.now()};
+  // Notifica usuários mencionados
+  extractMentions(txt).forEach(uid2=>{
+    const u = getUser(uid2);
+    if(u && u.id!==me.id) pushNotif(`${me.name} te mencionou em "${t.title.slice(0,25)}"`, "@");
+  });
+  updateTask(taskId, {comments:[...(t.comments||[]),c]}, null, true);
+  hideMentionPopup();
+  renderTaskDetail(taskId, false); // re-renderiza o modal com o novo comentário
+  toast("Comentário adicionado", "·", "var(--blu)");
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   MODAL DE ATALHOS DE TECLADO
+   Lista todos os atalhos disponíveis com teclas formatadas em <kbd>.
+   Aberto pelo botão na sidebar ou pressionando ? (fora de inputs).
+══════════════════════════════════════════════════════════════════ */
+function openShortcutsModal(){
+  const shortcuts = [
+    {k:["N"],              label:"Nova tarefa (fora de inputs)"},
+    {k:["Ctrl","Enter"],   label:"Enviar comentário / formulário"},
+    {k:["Ctrl","="],       label:"Aumentar zoom"},
+    {k:["Ctrl","-"],       label:"Diminuir zoom"},
+    {k:["Ctrl","0"],       label:"Zoom 100%"},
+    {k:["Ctrl","Shift","D"],label:"Alternar tema claro/escuro"},
+    {k:["Esc"],            label:"Fechar modal"},
+    {k:["@"],              label:"Mencionar usuário em comentário"},
+    {k:["↑ ↓"],           label:"Navegar menções / autocomplete"},
+    {k:["Enter"],          label:"Confirmar seleção de menção"},
+    {k:["?"],              label:"Mostrar atalhos"},
+  ];
+  openModal("Atalhos de teclado", `<div>${shortcuts.map(s=>`
+    <div class="shortcut-row">
+      <span style="color:var(--tx2)">${s.label}</span>
+      <div style="display:flex;gap:4px;align-items:center">
+        ${s.k.map(k=>`<kbd>${esc(k)}</kbd>`).join('<span style="font-size:11px;color:var(--tx3)">+</span>')}
+      </div>
+    </div>`).join("")}</div>`, null);
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+   SINCRONIZAÇÃO DE USUÁRIOS VIA SOCKET
+══════════════════════════════════════════════════════════════════ */
+socket.on("user_created", (user) => {
+  if (!USERS.find(u => u.id === user.id)) USERS.push(user);
+  if (currentView === "team") renderContent();
+  pushNotif("Novo funcionário: " + user.name, "+");
+});
+
+socket.on("user_updated", ({ id, patch }) => {
+  const idx = USERS.findIndex(u => u.id === id);
+  if (idx >= 0) USERS[idx] = { ...USERS[idx], ...patch };
+  if (currentView === "team") renderContent();
+  if (id === me?.id) {
+    me = { ...me, ...patch };
+    document.getElementById("sb-name").textContent  = me.name;
+    document.getElementById("sb-title").textContent = me.title;
+    document.getElementById("sb-avatar").innerHTML  = avHTML(me, 30, true);
+  }
+});
+
+socket.on("user_deleted", (userId) => {
+  const idx = USERS.findIndex(u => u.id === userId);
+  if (idx >= 0) {
+    const name = USERS[idx].name;
+    USERS.splice(idx, 1);
+    if (currentView === "team") renderContent();
+    if (userId === me?.id) {
+      toast("Sua conta foi removida pelo administrador.", "!", "var(--red)");
+      setTimeout(() => logout(), 2500);
+    } else {
+      pushNotif("Funcionário removido: " + name, "×");
+    }
+  }
+});
+
+/* ══════════════════════════════════════════════════════════════════
+   VIEW GESTÃO DE EQUIPE
+══════════════════════════════════════════════════════════════════ */
+function renderTeam() {
+  const cards = USERS.map(u => {
+    const tc  = TASKS.filter(t => t.assignee === u.id).length;
+    const dc  = TASKS.filter(t => t.assignee === u.id && t.status === "done").length;
+    const pct = tc ? Math.round(dc/tc*100) : 0;
+    const isSelf = u.id === me.id;
+    return "<div class=\"card\" style=\"padding:20px;display:flex;flex-direction:column;gap:14px\">" +
+      "<div style=\"display:flex;align-items:flex-start;gap:12px\">" +
+        avHTML(u, 44, true) +
+        "<div style=\"flex:1;min-width:0\">" +
+          "<div style=\"display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px\">" +
+            "<p style=\"font-size:15px;font-weight:600\">" + esc(u.name) + "</p>" +
+            (isSelf ? "<span class=\"bdg bdg-D\" style=\"font-size:10px\">você</span>" : "") +
+            "<span class=\"bdg " + (u.role==="admin"?"bdg-A":"bdg-C") + "\" style=\"font-size:10px\">" + (u.role==="admin"?"Admin":"Colaborador") + "</span>" +
+            (onlineUsers.has(u.id) ? "<span style=\"display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#22c55e\"><span style=\"width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block\"></span>online</span>" : "") +
+          "</div>" +
+          "<p style=\"font-size:12px;color:var(--tx3)\">" + esc(u.title) + "</p>" +
+          "<p style=\"font-size:12px;color:var(--tx3);margin-top:1px\">" + esc(u.email) + "</p>" +
+        "</div>" +
+      "</div>" +
+      "<div>" +
+        "<div style=\"display:flex;justify-content:space-between;align-items:center;margin-bottom:5px\">" +
+          "<span style=\"font-size:11px;color:var(--tx3)\">Tarefas concluídas</span>" +
+          "<span style=\"font-size:11px;font-weight:600;color:var(--tx2)\">" + dc + "/" + tc + "</span>" +
+        "</div>" +
+        "<div class=\"prog-track\"><div class=\"prog-bar\" style=\"width:" + pct + "%;background:" + u.clr + "\"></div></div>" +
+      "</div>" +
+      "<div style=\"display:flex;gap:7px;border-top:1px solid var(--bdr);padding-top:12px\">" +
+        "<button class=\"btn btn-G btn-sm\" onclick=\"openEditUserModal('" + u.id + "')\">Editar</button>" +
+        (!isSelf ? "<button class=\"btn btn-D btn-sm\" onclick=\"confirmDeleteUser('" + u.id + "')\">Remover</button>" : "") +
+      "</div>" +
+    "</div>";
+  }).join("");
+
+  return "<div style=\"display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:24px\">" +
+    "<div><h2 style=\"font-size:22px\">Gestão de equipe</h2>" +
+    "<p style=\"font-size:12px;color:var(--tx3);margin-top:2px\">" + USERS.length + " funcionário" + (USERS.length!==1?"s":"") + " cadastrado" + (USERS.length!==1?"s":"") + "</p></div>" +
+    "<button class=\"btn btn-P\" onclick=\"openNewUserModal()\">+ Adicionar funcionário</button>" +
+    "</div>" +
+    "<div style=\"display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px\">" + cards + "</div>";
+}
+
+/* Formulário de usuário */
+function renderUserForm(init) {
+  return `<div style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div>
+        <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:5px;letter-spacing:.04em">NOME COMPLETO *</label>
+        <input id="uf-name" value="${esc(init?.name||"")}" placeholder="João Silva" oninput="autoFillInitials()"/>
+        <p id="uf-name-err" style="font-size:11px;color:var(--red);margin-top:3px;min-height:14px"></p>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:5px;letter-spacing:.04em">EMAIL *</label>
+        <input id="uf-email" type="email" value="${esc(init?.email||"")}" placeholder="joao@corp.com"/>
+        <p id="uf-email-err" style="font-size:11px;color:var(--red);margin-top:3px;min-height:14px"></p>
+      </div>
+    </div>
+    <div>
+      <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:5px;letter-spacing:.04em">CARGO</label>
+      <input id="uf-title" value="${esc(init?.title||"")}" placeholder="Dev Sênior, Designer UX…"/>
+    </div>
+    <div>
+      <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:8px;letter-spacing:.04em">PERFIL DE ACESSO</label>
+      <div style="display:flex;gap:8px">
+        <label style="flex:1;border:1px solid var(--bdr);border-radius:var(--rs);padding:10px 12px;cursor:pointer;transition:all .12s;display:flex;align-items:center;gap:8px" id="role-collab-label">
+          <input type="radio" name="uf-role" id="uf-role-collab" value="collab" ${(!init||init.role==="collab")?"checked":""} onchange="updateRoleStyle()" style="width:auto;padding:0;margin:0;border:none;box-shadow:none"/>
+          <div><p style="font-size:13px;font-weight:600">Colaborador</p><p style="font-size:11px;color:var(--tx3)">Gerencia suas próprias tarefas</p></div>
+        </label>
+        <label style="flex:1;border:1px solid var(--bdr);border-radius:var(--rs);padding:10px 12px;cursor:pointer;transition:all .12s;display:flex;align-items:center;gap:8px" id="role-admin-label">
+          <input type="radio" name="uf-role" id="uf-role-admin" value="admin" ${init?.role==="admin"?"checked":""} onchange="updateRoleStyle()" style="width:auto;padding:0;margin:0;border:none;box-shadow:none"/>
+          <div><p style="font-size:13px;font-weight:600">Administrador</p><p style="font-size:11px;color:var(--tx3)">Acesso total, gerencia equipe</p></div>
+        </label>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div>
+        <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:5px;letter-spacing:.04em">INICIAIS DO AVATAR</label>
+        <input id="uf-av" value="${esc(init?.av||"")}" placeholder="JS" maxlength="2" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase();updateAvatarPreview()"/>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:5px;letter-spacing:.04em">COR DO AVATAR</label>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="color" id="uf-clr" value="${init?.clr||"#1A4E8A"}" style="width:44px;height:36px;padding:2px;cursor:pointer;border-radius:var(--rs)" oninput="updateAvatarPreview()"/>
+          <div id="av-preview" style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;background:${init?.clr||"#1A4E8A"}">${esc(init?.av||"?")}</div>
+        </div>
+      </div>
+    </div>
+    <p id="uf-server-err" style="font-size:12px;color:var(--red);min-height:14px"></p>
+    <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:6px;border-top:1px solid var(--bdr)">
+      <button class="btn btn-G" onclick="closeModalForce()">Cancelar</button>
+      <button class="btn btn-P" id="uf-submit">${init?"Salvar alterações":"Adicionar funcionário"}</button>
+    </div>
+  </div>`;
+}
+
+function updateRoleStyle() {
+  const a = document.getElementById("uf-role-admin")?.checked;
+  const la = document.getElementById("role-admin-label");
+  const lc = document.getElementById("role-collab-label");
+  if (!la) return;
+  la.style.borderColor = a  ? "var(--acc)" : "var(--bdr)"; la.style.background = a  ? "var(--acc-bg)" : "";
+  lc.style.borderColor = !a ? "var(--blu)" : "var(--bdr)"; lc.style.background = !a ? "var(--blu-bg)" : "";
+}
+
+function autoFillInitials() {
+  const avEl = document.getElementById("uf-av");
+  if (!avEl || avEl.dataset.manual) return;
+  const parts = (document.getElementById("uf-name")?.value||"").trim().split(/\s+/);
+  avEl.value = parts.length===1 ? parts[0].slice(0,2).toUpperCase() : (parts[0][0]+(parts[parts.length-1][0]||"")).toUpperCase();
+  updateAvatarPreview();
+}
+
+function updateAvatarPreview() {
+  const av  = document.getElementById("uf-av")?.value  || "?";
+  const clr = document.getElementById("uf-clr")?.value || "#1A4E8A";
+  const p = document.getElementById("av-preview");
+  if (p) { p.textContent = av; p.style.background = clr; }
+}
+
+function bindUserForm(userId) {
+  const isEdit = !!userId;
+  setTimeout(() => {
+    updateRoleStyle();
+    document.getElementById("uf-av")?.addEventListener("input", () => { document.getElementById("uf-av").dataset.manual="1"; });
+    document.getElementById("uf-submit")?.addEventListener("click", () => {
+      const name  = document.getElementById("uf-name").value.trim();
+      const email = document.getElementById("uf-email").value.trim();
+      document.getElementById("uf-name-err").textContent   = "";
+      document.getElementById("uf-email-err").textContent  = "";
+      document.getElementById("uf-server-err").textContent = "";
+      if (!name)  { document.getElementById("uf-name-err").textContent  = "Nome obrigatório";  return; }
+      if (!email) { document.getElementById("uf-email-err").textContent = "Email obrigatório"; return; }
+      const role = document.querySelector('input[name="uf-role"]:checked')?.value || "collab";
+      const payload = { name, email, role,
+        title: document.getElementById("uf-title").value.trim(),
+        av:    document.getElementById("uf-av").value.toUpperCase().slice(0,2) || name.slice(0,2).toUpperCase(),
+        clr:   document.getElementById("uf-clr").value,
+      };
+      const btn = document.getElementById("uf-submit");
+      btn.disabled=true; btn.textContent="Salvando…";
+      const evt = isEdit ? "user_update" : "user_create";
+      const data = isEdit ? { id: userId, patch: payload } : payload;
+      socket.emit(evt, data, (res) => {
+        if (res.error) {
+          document.getElementById("uf-server-err").textContent = res.error;
+          btn.disabled=false; btn.textContent = isEdit ? "Salvar alterações" : "Adicionar funcionário"; return;
+        }
+        if (isEdit) { const idx=USERS.findIndex(u=>u.id===userId); if(idx>=0) USERS[idx]=res.user; }
+        else { if (!USERS.find(u=>u.id===res.user.id)) USERS.push(res.user); }
+        closeModalForce();
+        toast(isEdit ? res.user.name+" atualizado(a)" : res.user.name+" adicionado(a) à equipe", isEdit?"·":"+", isEdit?"var(--blu)":"var(--grn)");
+        renderContent();
+      });
+    });
+  }, 50);
+}
+
+function openNewUserModal()       { openModal("Adicionar funcionário", renderUserForm(null), null); bindUserForm(null); }
+function openEditUserModal(uid)   { const u=USERS.find(u=>u.id===uid); if(!u) return; openModal("Editar — "+u.name, renderUserForm(u), null); bindUserForm(uid); }
+
+function confirmDeleteUser(userId) {
+  const u = USERS.find(u=>u.id===userId); if (!u) return;
+  const tc = TASKS.filter(t=>t.assignee===userId).length;
+  openModal("Confirmar remoção", `<div class="confirm-box">
+    <p style="font-size:13px;font-weight:600;color:var(--red);letter-spacing:.05em;text-transform:uppercase;margin-bottom:12px">Remover funcionário</p>
+    <p>Tem certeza que deseja remover <strong>${esc(u.name)}</strong> da equipe?</p>
+    ${tc>0?`<p style="margin-top:8px;font-size:12px;color:var(--amb)">Atenção: este funcionário possui <strong>${tc}</strong> tarefa${tc!==1?"s":""} atribuída${tc!==1?"s":""}. As tarefas não serão excluídas.</p>`:""}
+    <div class="confirm-actions" style="margin-top:20px">
+      <button class="btn btn-G" onclick="closeModalForce()">Cancelar</button>
+      <button class="btn btn-D" onclick="executeDeleteUser('${userId}')">Remover definitivamente</button>
+    </div>
+  </div>`, null);
+}
+
+function executeDeleteUser(userId) {
+  socket.emit("user_delete", userId, (res) => {
+    if (res.error) { toast(res.error, "!", "var(--red)"); return; }
+    const idx=USERS.findIndex(u=>u.id===userId), name=idx>=0?USERS[idx].name:"Funcionário";
+    if(idx>=0) USERS.splice(idx,1);
+    closeModalForce(); toast(name+" removido(a)","×","var(--red)"); renderContent();
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   TEMA (claro / escuro)
+   applyTheme → adiciona/remove a classe .dark no <html>, atualiza
+     o botão de toggle e persiste a preferência no localStorage.
+   loadTheme  → carrega a preferência salva ou usa a do sistema
+     (prefers-color-scheme). Também registra listener para mudança
+     automática se o usuário não tiver preferência salva.
+══════════════════════════════════════════════════════════════════ */
+let isDark = false;
+function applyTheme(dark){
+  isDark = dark;
+  document.documentElement.classList.toggle("dark", dark);
+  const btn = document.getElementById("theme-toggle");
+  // ◑ = meio círculo (tema claro) | ● = círculo cheio (tema escuro)
+  if(btn) btn.innerHTML = dark ? "🌑" : "☀️";
+  try{ localStorage.setItem("tf8_theme", dark?"dark":"light"); }catch(e){}
+}
+function toggleTheme(){ applyTheme(!isDark); }
+function loadTheme(){
+  const saved = localStorage.getItem("tf8_theme");
+  const prefersDark = window.matchMedia?.("(prefers-color-scheme:dark)").matches;
+  applyTheme(saved ? saved==="dark" : prefersDark);
+  // Escuta mudanças na preferência do sistema operacional
+  window.matchMedia?.("(prefers-color-scheme:dark)").addEventListener("change", e=>{
+    if(!localStorage.getItem("tf8_theme")) applyTheme(e.matches);
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ATALHOS DE TECLADO GLOBAIS
+   Escuta keydown em todo o documento.
+   Atalhos que dependem de Ctrl são seguros em inputs.
+   Atalhos de letra única (N, ?) só disparam fora de inputs e modais.
+══════════════════════════════════════════════════════════════════ */
+document.addEventListener("keydown", e=>{
+  if(!me) return; // ignora se não há usuário logado
+  if(e.ctrlKey && (e.key==="="||e.key==="+")){ e.preventDefault(); changeZoom(+1); }
+  if(e.ctrlKey && e.key==="-"){                e.preventDefault(); changeZoom(-1); }
+  if(e.ctrlKey && e.key==="0"){                e.preventDefault(); zoomIdx=4; applyZoom(); } // reset para 100%
+  if(e.ctrlKey && e.shiftKey && e.key==="D"){  e.preventDefault(); toggleTheme(); }
+  const modalOpen = !document.getElementById("modal-overlay").classList.contains("hidden");
+  const inInput   = document.activeElement.tagName==="INPUT" || document.activeElement.tagName==="TEXTAREA";
+  if(!modalOpen && !inInput){
+    if(e.key==="?") openShortcutsModal();
+    if(e.key==="n" && !e.ctrlKey && !e.metaKey && !e.shiftKey) openNewTask();
+  }
+});
+
+/* ══════════════════════════════════════════════════════════════════
+   INICIALIZAÇÃO (boot)
+   1. loadTheme → aplica tema claro/escuro salvo
+   2. loadZoom  → aplica zoom salvo
+   3. initLogin → renderiza lista de usuários demo
+   As tarefas chegam via socket.on("init") após o login.
+══════════════════════════════════════════════════════════════════ */
+loadTheme();
+loadZoom();
+initLogin();
+</script>
+</body>
+</html>
