@@ -203,14 +203,14 @@ button:disabled{ opacity:.38;cursor:not-allowed;pointer-events:none }
    Arquitetura de 3 camadas fixas + conteúdo scrollável:
 
    ┌──────────┬──────────────────────────────────┐  ← fixo no topo
-   │          │  TOPBAR (position:fixed)          │
+   │          │  TOPBAR (position:fixed)         │
    │ SIDEBAR  ├──────────────────────────────────┤
    │ (fixed)  │                                  │
-   │          │  #content (scroll normal)         │
+   │          │  #content (scroll normal)        │
    │          │                                  │
    └──────────┴──────────────────────────────────┘
 
-   ATENÇÃO: position:fixed em sidebar e topbar só funciona
+   position:fixed em sidebar e topbar só funciona
    corretamente se NENHUM ancestral tiver transform, filter ou
    perspective aplicados. Por isso o zoom usa font-size no <html>
    em vez de transform no wrapper — evita criar novo contexto
@@ -527,7 +527,7 @@ kbd{ font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;backg
 ================================================================ */
 #mobile-overlay{ position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:250;display:none;backdrop-filter:blur(2px) }
 
-/* Botão de tema: texto tipográfico (◑/●) em vez de emoji */
+/* Botão de tema */
 #theme-toggle{ font-size:15px;font-weight:700;letter-spacing:-.5px }
 
 /* ================================================================
@@ -759,10 +759,11 @@ kbd{ font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;backg
    O servidor identifica usuários pelo userId enviado no evento "join".
 ══════════════════════════════════════════════════════════════════ */
 const USERS = [
-  {id:"u1",name:"Ana Beatriz",  email:"ana@corp.com",      role:"admin", title:"Gerente de Projetos",av:"AB",clr:"#1A4E8A"},
-  {id:"u2",name:"Carlos Mendes",email:"carlos@corp.com",   role:"collab",title:"Dev Sênior",          av:"CM",clr:"#276645"},
-  {id:"u3",name:"Fernanda Lima",email:"fernanda@corp.com", role:"collab",title:"Designer UX",         av:"FL",clr:"#7B3494"},
-  {id:"u4",name:"Rafael Torres",email:"rafael@corp.com",   role:"collab",title:"Analista de Dados",   av:"RT",clr:"#9A5B1E"},
+  {id:"u1",name:"Mayara Marques",  email:"mayara@corp.com",     role:"admin", title:"Administradora", av:"MM",clr:"#1A4E8A"},
+  {id:"u2",name:"Jessica Santos",  email:"jessica@corp.com",    role:"collab",title:"Colaboradora",    av:"JS",clr:"#276645"},
+  {id:"u3",name:"Julia Pereira",   email:"julia@corp.com",      role:"collab",title:"Colaboradora",    av:"JP",clr:"#7B3494"},
+  {id:"u4",name:"Thiago Venancio", email:"thiago@corp.com",     role:"collab",title:"Colaborador",     av:"TV",clr:"#9A5B1E"},
+  {id:"u5",name:"Alessandra Santos",email:"alessandra@corp.com",role:"collab",title:"Colaboradora",    av:"AS",clr:"#B03060"},
 ];
 
 /* ══════════════════════════════════════════════════════════════════
@@ -773,7 +774,7 @@ let currentView = "dashboard";
 let sortBy      = "default";
 let notifications = [], notifCount = 0, modalCloseCallback = null;
 
-// Presença — agora vinda do servidor, não simulada
+// Presença
 let onlineUsers  = new Set();   // userIds online (vindos do servidor)
 let editingTasks = {};          // { taskId: { userId, userName } }
 
@@ -896,7 +897,7 @@ const getUser = id => USERS.find(u=>u.id===id);
 const getTask = id => TASKS.find(t=>t.id===id);
 const esc     = s  => String(s).replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
-// Não salva mais no localStorage — o servidor persiste os dados
+// o servidor persiste os dados
 function saveTasks(){ /* sincronizado via socket */ }
 function loadTasks(){ /* recebido via socket.on("init") */ }
 
@@ -1168,11 +1169,11 @@ function initApp(){
 
   // Gera links de navegação filtrados por permissão
   const navDefs = [
-    {id:"dashboard", label:"Dashboard",       icon:"&#9632;"},
-    {id:"all",       label:"Todas as tarefas",icon:"&#8801;", adminOnly:true},
-    {id:"mine",      label:"Minhas tarefas",  icon:"&#9675;"},
-    {id:"kanban",    label:"Kanban Board",    icon:"&#9638;"},
-    {id:"team",      label:"Equipe",          icon:"&#9786;", adminOnly:true},
+  {id:"dashboard", label:"Dashboard",       icon:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="16" height="16"><rect x="1" y="1" width="13" height="30" rx="2" ry="2"/><rect x="18" y="1" width="13" height="13" rx="2" ry="2"/><rect x="18" y="18" width="13" height="13" rx="2" ry="2"/></svg>`},
+  {id:"all",       label:"Todas as tarefas",icon:"&#8801;", adminOnly:true},
+  {id:"mine",      label:"Minhas tarefas",  icon:"&#9675;"},
+  {id:"kanban",    label:"Kanban Board",    icon:"&#9638;"},
+  {id:"team",      label:"Equipe",          icon:"&#9786;", adminOnly:true},
   ].filter(n => !n.adminOnly || me.role==="admin");
 
   document.getElementById("nav-links").innerHTML = navDefs.map(n=>`
