@@ -1,47 +1,24 @@
 [
   {
     "id": "u1",
-    "name": "Mayara Marques",
-    "email": "mayara@corp.com",
+    "name": "Leonardo",
+    "email": "leonardo@corp.com",
     "role": "admin",
-    "title": "Administradora",
-    "av": "MM",
-    "clr": "#1A4E8A"
+    "title": "Administrador do Sistema",
+    "av": "LE",
+    "clr": "#960808",
+    "passwordHash": "$2b$10$c1MRjnd8hqKAXqqSvrWcdOh6yvCB6J2x46.KYtcUkuf6fiUlTSAUa",
+    "mustChangePassword": false
   },
   {
     "id": "u2",
-    "name": "Jessica Santos",
-    "email": "jessica@corp.com",
+    "name": "Mayara Marques",
+    "email": "mayara@corp.com",
     "role": "collab",
-    "title": "Colaboradora",
-    "av": "JS",
-    "clr": "#276645"
-  },
-  {
-    "id": "u3",
-    "name": "Julia Pereira",
-    "email": "julia@corp.com",
-    "role": "collab",
-    "title": "Colaboradora",
-    "av": "JP",
-    "clr": "#7B3494"
-  },
-  {
-    "id": "u4",
-    "name": "Thiago Venancio",
-    "email": "thiago@corp.com",
-    "role": "collab",
-    "title": "Colaborador",
-    "av": "TV",
-    "clr": "#9A5B1E"
-  },
-  {
-    "id": "u5",
-    "name": "Alessandra Santos",
-    "email": "alessandra@corp.com",
-    "role": "collab",
-    "title": "Colaboradora",
-    "av": "AS",
-    "clr": "#B03060"
+    "title": "Financeiro",
+    "av": "MM",
+    "clr": "#f90179",
+    "passwordHash": "$2b$10$7NO3R00bLc/MnJ.PnVEWTuQiMqqqEp1tv/oe.ivYzmbKgu4zJYu3K",
+    "mustChangePassword": false
   }
 ]

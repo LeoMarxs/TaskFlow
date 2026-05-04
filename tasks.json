@@ -1,174 +1,46 @@
 [
   {
-    "id": "8jjrswz",
-    "title": "teste foda 2",
-    "desc": "ta funcionando ai?",
-    "priority": "high",
-    "due": "2026-03-23",
+    "id": "imx20bz",
+    "title": "Emitir Nota Fiscal",
+    "desc": "Emitir nota fiscal do Josivaldo",
+    "priority": "medium",
+    "due": "2026-05-05",
     "assignee": "u2",
-    "tags": [],
-    "status": "pending",
-    "creator": "u2",
+    "tags": [
+      "financeiro"
+    ],
+    "status": "in_progress",
+    "creator": "u1",
     "comments": [
       {
-        "id": "90auz24",
+        "id": "jh8reg4",
         "author": "u1",
-        "text": "ta fununciando",
-        "ts": 1774224647859
+        "text": "Deu Certo?",
+        "ts": 1777925207733
       },
       {
-        "id": "3x523pn",
-        "author": "u3",
-        "text": "to aqui",
-        "ts": 1774224763379
-      }
-    ],
-    "history": [
-      {
-        "a": "criada",
-        "u": "u2",
-        "ts": 1774224623768
-      }
-    ]
-  },
-  {
-    "id": "nrimlrg",
-    "title": "teste foda",
-    "desc": "ta funcionando?",
-    "priority": "high",
-    "due": "2026-03-23",
-    "assignee": "u2",
-    "tags": [],
-    "status": "pending",
-    "creator": "u2",
-    "comments": [
-      {
-        "id": "lhx4fi5",
-        "author": "u1",
-        "text": "ta fununciando",
-        "ts": 1774224485509
-      }
-    ],
-    "history": [
-      {
-        "a": "criada",
-        "u": "u2",
-        "ts": 1774224400099
-      }
-    ]
-  },
-  {
-    "id": "t1",
-    "title": "Migração do banco para PostgreSQL",
-    "desc": "Planejar e executar migração completa do MySQL para PostgreSQL.",
-    "priority": "high",
-    "status": "pending",
-    "assignee": "u2",
-    "creator": "u1",
-    "due": "2026-03-28",
-    "tags": [
-      "infra",
-      "backend"
-    ],
-    "comments": [],
-    "history": [
-      {
-        "a": "criada",
-        "u": "u1",
-        "ts": 1774137785392
-      }
-    ]
-  },
-  {
-    "id": "t2",
-    "title": "Redesign do dashboard de relatórios",
-    "desc": "Atualizar componentes visuais seguindo o novo design system.",
-    "priority": "medium",
-    "status": "in_progress",
-    "assignee": "u3",
-    "creator": "u1",
-    "due": "2026-04-05",
-    "tags": [
-      "design",
-      "frontend"
-    ],
-    "comments": [],
-    "history": [
-      {
-        "a": "criada",
-        "u": "u1",
-        "ts": 1774051385392
-      }
-    ]
-  },
-  {
-    "id": "t3",
-    "title": "Documentar API de autenticação",
-    "desc": "Criar documentação OpenAPI 3.0 para todos os endpoints.",
-    "priority": "low",
-    "status": "done",
-    "assignee": "u2",
-    "creator": "u2",
-    "due": "2026-03-20",
-    "tags": [
-      "docs",
-      "backend"
-    ],
-    "comments": [],
-    "history": [
-      {
-        "a": "criada",
-        "u": "u2",
-        "ts": 1773964985392
+        "id": "dzq9wfd",
+        "author": "u2",
+        "text": "Simm!!",
+        "ts": 1777925349802
       },
       {
-        "a": "concluída",
-        "u": "u2",
-        "ts": 1774220585392
+        "id": "pn9ws4t",
+        "author": "u1",
+        "text": "Boa",
+        "ts": 1777925398531
       }
-    ]
-  },
-  {
-    "id": "t4",
-    "title": "Análise de métricas Q1 2026",
-    "desc": "Consolidar KPIs e preparar deck executivo para a diretoria.",
-    "priority": "high",
-    "status": "pending",
-    "assignee": "u4",
-    "creator": "u1",
-    "due": "2026-03-31",
-    "tags": [
-      "dados",
-      "relatório"
     ],
-    "comments": [],
     "history": [
       {
         "a": "criada",
         "u": "u1",
-        "ts": 1774180985392
-      }
-    ]
-  },
-  {
-    "id": "t5",
-    "title": "Setup do ambiente de staging",
-    "desc": "Configurar staging espelhando produção.",
-    "priority": "medium",
-    "status": "in_progress",
-    "assignee": "u2",
-    "creator": "u2",
-    "due": "2026-04-10",
-    "tags": [
-      "infra",
-      "devops"
-    ],
-    "comments": [],
-    "history": [
+        "ts": 1777925155542
+      },
       {
-        "a": "criada",
+        "a": "status → \"Em Progresso\"",
         "u": "u2",
-        "ts": 1774116185392
+        "ts": 1777925362180
       }
     ]
   }

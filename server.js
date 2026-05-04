@@ -418,15 +418,24 @@ io.on("connection", (socket) => {
 /* ══════════════════════════════════════════════════════════════
    START
 ══════════════════════════════════════════════════════════════ */
+
 server.listen(PORT, "0.0.0.0", () => {
-  console.log("\n╔════════════════════════════════════════╗");
-  console.log("║   TaskFlow Server v3 — RODANDO         ║");
-  console.log(`║   http://localhost:${PORT}                ║`);
-  console.log("║   Compartilhe: http://SEU_IP:" + PORT + "      ║");
-  console.log("║   Windows IP: ipconfig                 ║");
-  console.log("║   Mac/Linux:  ifconfig                 ║");
-  console.log("╠════════════════════════════════════════╣");
-  console.log("║   Admin padrão: admin@corp.com         ║");
-  console.log("║   Senha padrão: admin123               ║");
-  console.log("╚════════════════════════════════════════╝\n");
+  console.log(`
+████████╗ █████╗ ███████╗██╗  ██╗███████╗██╗      ██████╗ ██╗    ██╗
+╚══██╔══╝██╔══██╗██╔════╝██║ ██╔╝██╔════╝██║     ██╔═══██╗██║    ██║
+   ██║   ███████║███████╗█████╔╝ █████╗  ██║     ██║   ██║██║ █╗ ██║
+   ██║   ██╔══██║╚════██║██╔═██╗ ██╔══╝  ██║     ██║   ██║██║███╗██║
+   ██║   ██║  ██║███████║██║  ██╗██║     ███████╗╚██████╔╝╚███╔███╔╝
+   ╚═╝   ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝     ╚══════╝ ╚═════╝  ╚══╝╚══╝ 
+            ╔════════════════════════════════════════╗
+            ║   TaskFlow Server v3 — ONLINE          ║
+            ║   http://localhost:${PORT}                ║
+            ║   Compartilhe: http://SEU_IP:${PORT}      ║
+            ║   Windows IP: ipconfig                 ║
+            ║   Mac/Linux:  ifconfig                 ║
+            ╠════════════════════════════════════════╣
+            ║   Admin padrão: admin@corp.com         ║
+            ║   Senha padrão: admin123               ║
+            ╚════════════════════════════════════════╝\n
+  `);
 });
