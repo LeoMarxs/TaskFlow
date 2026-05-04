@@ -566,7 +566,6 @@ kbd{ font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;backg
 <div id="login-screen">
   <div style="width:100%;max-width:360px">
     <div style="text-align:center;margin-bottom:32px">
-      <!-- Logotipo: quadrado com iniciais "TF" -->
       <div style="width:44px;height:44px;background:var(--tx);border-radius:10px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
         <span style="font-size:14px;font-weight:700;color:var(--surf);font-family:'IBM Plex Sans',sans-serif;letter-spacing:-.5px">TF</span>
       </div>
@@ -575,16 +574,11 @@ kbd{ font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;backg
     </div>
     <div class="card" style="padding:26px">
       <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:6px;letter-spacing:.04em">EMAIL CORPORATIVO</label>
-      <!-- Enter no input aciona doLogin() diretamente -->
-      <input id="login-email" placeholder="seu@corp.com" autocomplete="email" onkeydown="if(event.key==='Enter')doLogin()"/>
-      <!-- Parágrafo de erro — preenchido pelo JS se email não encontrado -->
-      <p id="login-err" style="font-size:12px;color:var(--red);margin:6px 0 12px;min-height:14px"></p>
-      <button class="btn btn-P w100" style="justify-content:center;padding:10px 16px;font-size:14px" onclick="doLogin()">Entrar &rarr;</button>
-      <div style="margin-top:20px;padding:14px;background:var(--bg);border-radius:8px;border:1px solid var(--bdr)">
-        <p style="font-size:10px;font-weight:600;color:var(--tx3);margin-bottom:10px;letter-spacing:.06em;text-transform:uppercase">Usuários de demonstração</p>
-        <!-- Populado dinamicamente por initLogin() no JS -->
-        <div id="demo-users"></div>
-      </div>
+      <input id="login-email" placeholder="seu@corp.com" autocomplete="email" onkeydown="if(event.key==='Enter')document.getElementById('login-password').focus()"/>
+      <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:6px;margin-top:14px;letter-spacing:.04em">SENHA</label>
+      <input id="login-password" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"/>
+      <p id="login-err" style="font-size:12px;color:var(--red);margin:8px 0 4px;min-height:14px"></p>
+      <button id="login-btn" class="btn btn-P w100" style="justify-content:center;padding:10px 16px;font-size:14px;margin-top:8px" onclick="doLogin()">Entrar &rarr;</button>
     </div>
     <p style="text-align:center;font-size:11px;color:var(--tx3);margin-top:16px">Pressione <kbd>?</kbd> após entrar para ver atalhos</p>
   </div>
@@ -657,6 +651,7 @@ kbd{ font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;backg
         </div>
       </div>
       <div id="sb-role-wrap" style="padding:0 10px 8px"><span id="sb-role" class="bdg" style="font-size:9px;padding:1px 7px"></span></div>
+      <button class="btn btn-G btn-sm w100" style="justify-content:center;font-size:12px;margin-bottom:6px" onclick="openChangePasswordModal()">&#128274; Trocar senha</button>
       <button class="btn btn-G btn-sm w100" style="justify-content:center;font-size:12px" onclick="logout()">&larrhk; Sair</button>
     </div>
   </div>
@@ -770,6 +765,7 @@ const USERS = [
    ESTADO DA APLICAÇÃO
 ══════════════════════════════════════════════════════════════════ */
 let me          = null;   // usuário logado
+let sessionToken = null;  // token de sessão recebido após login
 let currentView = "dashboard";
 let sortBy      = "default";
 let notifications = [], notifCount = 0, modalCloseCallback = null;
@@ -799,13 +795,29 @@ const SIC = {pending:"●",in_progress:"▶",done:"✓"};
 const socket = io(); // conecta ao servidor automaticamente
 
 // Recebe estado inicial ao entrar: tarefas + quem está online + quem está editando
-socket.on("init", ({ tasks, online, editing }) => {
+socket.on("init", ({ tasks, users, online, editing }) => {
   TASKS       = tasks;
+  // Atualiza USERS com os dados reais do servidor
+  if (users && users.length) {
+    USERS.length = 0;
+    users.forEach(u => USERS.push(u));
+    // Re-sincroniza o usuário logado com os dados atualizados do servidor
+    if (me) {
+      const fresh = USERS.find(u => u.id === me.id);
+      if (fresh) me = fresh;
+    }
+  }
   onlineUsers = new Set(online.map(u => u.userId));
   editingTasks = editing;
   renderContent();
   renderPresence();
   toast("Conectado ao servidor", "·", "var(--grn)");
+});
+
+// Sessão inválida — força logout
+socket.on("auth_error", ({ error }) => {
+  alert("Sessão expirada: " + error);
+  doLogout();
 });
 
 // Outro usuário entrou
@@ -1060,22 +1072,19 @@ function closeMobileSidebar(){
 
 /* ══════════════════════════════════════════════════════════════════
    PRESENÇA REAL (via servidor)
-   Ao contrário da versão standalone, a presença agora é real:
-   o servidor mantém quem está conectado e notifica todos via socket.
-   startPresence → envia evento "join" ao servidor após login
-   stopPresence  → desconexão é detectada automaticamente pelo servidor
+   startPresence → envia evento "join" com token de sessão
+   stopPresence  → desconexão é detectada pelo servidor
 ══════════════════════════════════════════════════════════════════ */
 function startPresence(){
-  // Anuncia ao servidor que este usuário entrou
   socket.emit("join", {
     userId:    me.id,
     userName:  me.name,
     userTitle: me.title,
+    token:     sessionToken,
   });
 }
 function stopPresence(){
-  // O servidor detecta a desconexão automaticamente via socket.on("disconnect")
-  // Não precisamos emitir nada explicitamente no logout
+  socket.emit("logout");
 }
 function startEditingTask(taskId){
   if(_myEditingTaskId===taskId) return;
@@ -1108,49 +1117,69 @@ function renderPresence(){
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   LOGIN
-   initLogin  → renderiza a lista de usuários demo clicáveis
-   clickDemoUser → preenche o campo de email ao clicar em um demo
-   doLogin    → valida o email, seta `me`, inicializa o app
-   logout     → limpa o estado e volta para a tela de login
+   LOGIN com senha
+   doLogin    → chama POST /api/login, recebe token, entra no app
+   doLogout   → limpa sessão e volta para login
+   initLogin  → placeholder (lista de usuários removida por segurança)
 ══════════════════════════════════════════════════════════════════ */
-function initLogin(){
-  document.getElementById("demo-users").innerHTML = USERS.map(u=>`
-    <div class="login-demo-row" onclick="clickDemoUser('${esc(u.email)}')" role="button" tabindex="0"
-      onkeydown="if(event.key==='Enter'||event.key===' ')clickDemoUser('${esc(u.email)}')">
-      ${avHTML(u,22)}
-      <div style="flex:1;min-width:0">
-        <p class="truncate" style="font-size:12px;font-weight:600">${esc(u.name)}</p>
-        <p class="truncate" style="font-size:11px;color:var(--tx3)">${esc(u.email)}</p>
-      </div>
-      <span class="bdg ${u.role==="admin"?"bdg-A":"bdg-C"}" style="font-size:9px;padding:1px 6px">${u.role==="admin"?"Admin":"Collab"}</span>
-    </div>`).join("");
+function initLogin(){ /* sem lista pública de usuários */ }
+
+async function doLogin(){
+  const email    = document.getElementById("login-email").value.trim().toLowerCase();
+  const password = document.getElementById("login-password").value;
+  const errEl    = document.getElementById("login-err");
+  const btn      = document.getElementById("login-btn");
+  errEl.textContent = "";
+  if (!email)    { errEl.textContent = "Informe o email."; return; }
+  if (!password) { errEl.textContent = "Informe a senha."; return; }
+  btn.disabled = true; btn.textContent = "Entrando…";
+  try {
+    const res  = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errEl.textContent = data.error || "Erro ao entrar.";
+      btn.disabled = false; btn.textContent = "Entrar →";
+      return;
+    }
+    sessionToken = data.token;
+    me = data.user;
+    // Atualiza USERS com dados do servidor
+    if (!USERS.find(u => u.id === me.id)) USERS.push(me);
+    document.getElementById("login-screen").classList.add("hidden");
+    document.getElementById("app").classList.remove("hidden");
+    document.getElementById("login-password").value = "";
+    btn.disabled = false; btn.textContent = "Entrar →";
+    initApp();
+    toast(`Bem-vindo(a), ${me.name.split(" ")[0]}!`, "→", "var(--blu)");
+    startPresence();
+    // Se o usuário precisa trocar a senha, abre o modal após breve delay
+    if (me.mustChangePassword) {
+      setTimeout(() => openChangePasswordModal(true), 600);
+    }
+  } catch(e) {
+    errEl.textContent = "Erro de conexão com o servidor.";
+    btn.disabled = false; btn.textContent = "Entrar →";
+  }
 }
-function clickDemoUser(email){
-  document.getElementById("login-email").value = email;
-  document.getElementById("login-err").textContent = "";
-  document.getElementById("login-email").focus();
-}
-function doLogin(){
-  const email = document.getElementById("login-email").value.trim().toLowerCase();
-  const u = USERS.find(x=>x.email.toLowerCase()===email);
-  if(!u){ document.getElementById("login-err").textContent="Email não encontrado."; return; }
-  me = u;
-  document.getElementById("login-screen").classList.add("hidden");
-  document.getElementById("app").classList.remove("hidden");
-  initApp();
-  toast(`Bem-vindo(a), ${me.name.split(" ")[0]}!`, "→", "var(--blu)");
-  startPresence();
-}
-function logout(){
+
+function doLogout(){
   stopPresence();
+  sessionToken = null;
   me = null; currentView = "dashboard"; sortBy = "default";
   document.getElementById("app").classList.add("hidden");
   document.getElementById("login-screen").classList.remove("hidden");
   document.getElementById("login-email").value = "";
+  document.getElementById("login-password").value = "";
   document.getElementById("login-err").textContent = "";
   document.getElementById("search-input").value = "";
 }
+
+// Mantém compatibilidade com chamadas existentes de logout()
+function logout(){ doLogout(); }
 
 /* ══════════════════════════════════════════════════════════════════
    INICIALIZAÇÃO DO APP (pós-login)
@@ -2095,6 +2124,7 @@ function renderTeam() {
       "</div>" +
       "<div style=\"display:flex;gap:7px;border-top:1px solid var(--bdr);padding-top:12px\">" +
         "<button class=\"btn btn-G btn-sm\" onclick=\"openEditUserModal('" + u.id + "')\">Editar</button>" +
+        "<button class=\"btn btn-G btn-sm\" onclick=\"openResetPasswordModal('" + u.id + "', '" + u.name.replace(/'/g,"&#39;") + "')\">Redefinir senha</button>" +
         (!isSelf ? "<button class=\"btn btn-D btn-sm\" onclick=\"confirmDeleteUser('" + u.id + "')\">Remover</button>" : "") +
       "</div>" +
     "</div>";
@@ -2153,6 +2183,12 @@ function renderUserForm(init) {
         </div>
       </div>
     </div>
+    ${!init ? `<div>
+      <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:5px;letter-spacing:.04em">SENHA INICIAL *</label>
+      <input id="uf-password" type="password" placeholder="Mín. 6 caracteres"/>
+      <p style="font-size:10px;color:var(--tx3);margin-top:3px">O usuário deverá trocar a senha no primeiro acesso.</p>
+      <p id="uf-password-err" style="font-size:11px;color:var(--red);margin-top:3px;min-height:14px"></p>
+    </div>` : ""}
     <p id="uf-server-err" style="font-size:12px;color:var(--red);min-height:14px"></p>
     <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:6px;border-top:1px solid var(--bdr)">
       <button class="btn btn-G" onclick="closeModalForce()">Cancelar</button>
@@ -2198,12 +2234,20 @@ function bindUserForm(userId) {
       document.getElementById("uf-server-err").textContent = "";
       if (!name)  { document.getElementById("uf-name-err").textContent  = "Nome obrigatório";  return; }
       if (!email) { document.getElementById("uf-email-err").textContent = "Email obrigatório"; return; }
+      // Valida senha apenas na criação
+      if (!isEdit) {
+        const pwd = document.getElementById("uf-password")?.value || "";
+        const pwdErr = document.getElementById("uf-password-err");
+        if (!pwd) { pwdErr.textContent = "Senha obrigatória"; return; }
+        if (pwd.length < 6) { pwdErr.textContent = "Mín. 6 caracteres"; return; }
+      }
       const role = document.querySelector('input[name="uf-role"]:checked')?.value || "collab";
       const payload = { name, email, role,
         title: document.getElementById("uf-title").value.trim(),
         av:    document.getElementById("uf-av").value.toUpperCase().slice(0,2) || name.slice(0,2).toUpperCase(),
         clr:   document.getElementById("uf-clr").value,
       };
+      if (!isEdit) payload.password = document.getElementById("uf-password").value;
       const btn = document.getElementById("uf-submit");
       btn.disabled=true; btn.textContent="Salvando…";
       const evt = isEdit ? "user_update" : "user_create";
@@ -2247,6 +2291,95 @@ function executeDeleteUser(userId) {
     if(idx>=0) USERS.splice(idx,1);
     closeModalForce(); toast(name+" removido(a)","×","var(--red)"); renderContent();
   });
+}
+
+/* ── Modal: trocar própria senha ── */
+function openChangePasswordModal(forced = false) {
+  const title = forced ? "Troque sua senha para continuar" : "Trocar senha";
+  openModal(title, `<div style="display:flex;flex-direction:column;gap:14px">
+    ${forced ? `<p style="font-size:12px;color:var(--amb);background:var(--amb-bg);border:1px solid var(--amb-bdr);padding:10px 12px;border-radius:var(--rs)">
+      Esta é a senha padrão do sistema. Por segurança, defina uma senha pessoal antes de continuar.
+    </p>` : ""}
+    <div>
+      <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:5px;letter-spacing:.04em">SENHA ATUAL</label>
+      <input id="cp-current" type="password" placeholder="••••••••"/>
+    </div>
+    <div>
+      <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:5px;letter-spacing:.04em">NOVA SENHA</label>
+      <input id="cp-new" type="password" placeholder="Mín. 6 caracteres"/>
+    </div>
+    <div>
+      <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:5px;letter-spacing:.04em">CONFIRMAR NOVA SENHA</label>
+      <input id="cp-confirm" type="password" placeholder="Repita a nova senha"/>
+    </div>
+    <p id="cp-err" style="font-size:12px;color:var(--red);min-height:14px"></p>
+    <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:6px;border-top:1px solid var(--bdr)">
+      ${!forced ? `<button class="btn btn-G" onclick="closeModalForce()">Cancelar</button>` : ""}
+      <button class="btn btn-P" id="cp-submit">Salvar nova senha</button>
+    </div>
+  </div>`, null);
+  setTimeout(() => {
+    document.getElementById("cp-submit")?.addEventListener("click", () => {
+      const cur  = document.getElementById("cp-current").value;
+      const nw   = document.getElementById("cp-new").value;
+      const conf = document.getElementById("cp-confirm").value;
+      const errEl = document.getElementById("cp-err");
+      errEl.textContent = "";
+      if (!cur)  { errEl.textContent = "Informe a senha atual."; return; }
+      if (!nw)   { errEl.textContent = "Informe a nova senha."; return; }
+      if (nw.length < 6) { errEl.textContent = "A nova senha deve ter ao menos 6 caracteres."; return; }
+      if (nw !== conf)   { errEl.textContent = "As senhas não coincidem."; return; }
+      const btn = document.getElementById("cp-submit");
+      btn.disabled = true; btn.textContent = "Salvando…";
+      socket.emit("change_password", { currentPassword: cur, newPassword: nw }, (res) => {
+        if (res.error) { errEl.textContent = res.error; btn.disabled=false; btn.textContent="Salvar nova senha"; return; }
+        // Atualiza flag local
+        if (me) me.mustChangePassword = false;
+        closeModalForce();
+        toast("Senha alterada com sucesso", "✓", "var(--grn)");
+      });
+    });
+  }, 50);
+}
+
+/* ── Modal: admin redefine senha de outro usuário ── */
+function openResetPasswordModal(userId, userName) {
+  openModal("Redefinir senha — " + userName, `<div style="display:flex;flex-direction:column;gap:14px">
+    <p style="font-size:12px;color:var(--tx2)">
+      Defina uma nova senha para <strong>${esc(userName)}</strong>. O usuário deverá trocá-la no próximo acesso.
+    </p>
+    <div>
+      <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:5px;letter-spacing:.04em">NOVA SENHA *</label>
+      <input id="rp-new" type="password" placeholder="Mín. 6 caracteres"/>
+    </div>
+    <div>
+      <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:5px;letter-spacing:.04em">CONFIRMAR SENHA *</label>
+      <input id="rp-confirm" type="password" placeholder="Repita a nova senha"/>
+    </div>
+    <p id="rp-err" style="font-size:12px;color:var(--red);min-height:14px"></p>
+    <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:6px;border-top:1px solid var(--bdr)">
+      <button class="btn btn-G" onclick="closeModalForce()">Cancelar</button>
+      <button class="btn btn-P" id="rp-submit">Redefinir senha</button>
+    </div>
+  </div>`, null);
+  setTimeout(() => {
+    document.getElementById("rp-submit")?.addEventListener("click", () => {
+      const nw   = document.getElementById("rp-new").value;
+      const conf = document.getElementById("rp-confirm").value;
+      const errEl = document.getElementById("rp-err");
+      errEl.textContent = "";
+      if (!nw)   { errEl.textContent = "Informe a nova senha."; return; }
+      if (nw.length < 6) { errEl.textContent = "Mín. 6 caracteres."; return; }
+      if (nw !== conf)   { errEl.textContent = "As senhas não coincidem."; return; }
+      const btn = document.getElementById("rp-submit");
+      btn.disabled = true; btn.textContent = "Salvando…";
+      socket.emit("admin_reset_password", { userId, newPassword: nw }, (res) => {
+        if (res.error) { errEl.textContent = res.error; btn.disabled=false; btn.textContent="Redefinir senha"; return; }
+        closeModalForce();
+        toast("Senha de " + userName + " redefinida", "✓", "var(--blu)");
+      });
+    });
+  }, 50);
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -2301,12 +2434,24 @@ document.addEventListener("keydown", e=>{
    INICIALIZAÇÃO (boot)
    1. loadTheme → aplica tema claro/escuro salvo
    2. loadZoom  → aplica zoom salvo
-   3. initLogin → renderiza lista de usuários demo
+   3. Busca usuários reais do servidor via /api/users
+   4. initLogin → renderiza lista de usuários atualizada
    As tarefas chegam via socket.on("init") após o login.
 ══════════════════════════════════════════════════════════════════ */
 loadTheme();
 loadZoom();
-initLogin();
+
+// Busca a lista atualizada de usuários do servidor antes de mostrar o login
+fetch("/api/users")
+  .then(r => r.json())
+  .then(serverUsers => {
+    if (serverUsers && serverUsers.length) {
+      USERS.length = 0;
+      serverUsers.forEach(u => USERS.push(u));
+    }
+  })
+  .catch(() => { /* fallback: usa USERS hardcoded */ })
+  .finally(() => initLogin());
 </script>
 </body>
 </html>
