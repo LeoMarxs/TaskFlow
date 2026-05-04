@@ -8,7 +8,7 @@
 
 O TaskFlow Corporate é uma aplicação web de gerenciamento de tarefas desenvolvida para equipes que trabalham no mesmo escritório ou rede local. Ele permite que todos os membros da equipe vejam, criem e atualizem tarefas em tempo real, além de visualizarem quem está online e o que cada pessoa está fazendo no momento.
 
-O sistema foi construído do zero como um único arquivo HTML, sem frameworks pesados, e evoluiu para uma aplicação cliente-servidor completa com Node.js e Socket.io para suportar múltiplos usuários simultâneos.
+O sistema foi construído do zero como um único arquivo HTML, sem frameworks pesados, e evoluiu para uma aplicação cliente-servidor completa com Node.js e Socket.io para suportar múltiplos usuários simultâneos — agora com autenticação por senha e tokens de sessão seguros.
 
 ---
 
@@ -21,6 +21,7 @@ O sistema foi construído do zero como um único arquivo HTML, sem frameworks pe
 | Interface | HTML + CSS + JavaScript puro | Toda a UI sem frameworks |
 | Servidor | Node.js + Express | Serve os arquivos e a API |
 | Tempo real | Socket.io | Sincronização entre usuários |
+| Segurança | bcrypt + crypto | Hash de senhas e tokens de sessão |
 | Fontes | Google Fonts | Playfair Display + IBM Plex Sans |
 | Persistência | JSON no disco | tasks.json e users.json |
 
@@ -58,6 +59,10 @@ O sistema foi construído do zero como um único arquivo HTML, sem frameworks pe
 - **Presença em tempo real** — veja quem está online e quem está editando uma tarefa agora
 - **Comentários com @menções** — mencione colegas nos comentários com autocomplete
 - **Notificações** — alertas de novas tarefas, menções e mudanças
+- **Autenticação por senha** — login com email e senha protegida por bcrypt
+- **Tokens de sessão** — cada login gera um token seguro que valida todas as operações
+- **Troca de senha** — usuários podem trocar a própria senha a qualquer momento
+- **Redefinição de senha** — administradores podem redefinir a senha de qualquer usuário
 - **Tema claro/escuro** — alternável pelo botão na topbar ou pelo atalho Ctrl + Shift + D
 - **Zoom** — controle de escala da interface para melhor legibilidade
 - **Histórico** — cada tarefa registra todas as ações realizadas
@@ -97,10 +102,24 @@ node server.js
 
 Você verá:
 ```
-╔════════════════════════════════════════╗
-║   TaskFlow Server — RODANDO            ║
-║   http://localhost:3000                ║
-╚════════════════════════════════════════╝
+
+████████╗ █████╗ ███████╗██╗  ██╗███████╗██╗      ██████╗ ██╗    ██╗
+╚══██╔══╝██╔══██╗██╔════╝██║ ██╔╝██╔════╝██║     ██╔═══██╗██║    ██║
+   ██║   ███████║███████╗█████╔╝ █████╗  ██║     ██║   ██║██║ █╗ ██║
+   ██║   ██╔══██║╚════██║██╔═██╗ ██╔══╝  ██║     ██║   ██║██║███╗██║
+   ██║   ██║  ██║███████║██║  ██╗██║     ███████╗╚██████╔╝╚███╔███╔╝
+   ╚═╝   ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝     ╚══════╝ ╚═════╝  ╚══╝╚══╝
+            ╔════════════════════════════════════════╗
+            ║   TaskFlow Server v3 — ONLINE          ║
+            ║   http://localhost:3000                ║
+            ║   Compartilhe: http://SEU_IP:3000      ║
+            ║   Windows IP: ipconfig                 ║
+            ║   Mac/Linux:  ifconfig                 ║
+            ╠════════════════════════════════════════╣
+            ║   Admin padrão: admin@corp.com         ║
+            ║   Senha padrão: admin123               ║
+            ╚════════════════════════════════════════╝
+
 ```
 
 **5.** Acesse no navegador:
@@ -110,7 +129,7 @@ http://localhost:3000
 
 ### A partir da segunda vez
 
-Só precisa dos passos **1**, **2** e **4**. O npm install não é necessário novamente.
+Só precisa dos passos **1**, **2** e **4**. O `npm install` não é necessário novamente.
 
 ---
 
@@ -127,7 +146,7 @@ Procure **"Endereço IPv4"** — exemplo: `192.168.1.100`
 http://192.168.1.100:3000
 ```
 
-**3.** Todos abrem esse endereço no navegador e fazem login com seu email.
+**3.** Todos abrem esse endereço no navegador e fazem login com email e senha.
 
 > Todos os computadores precisam estar na mesma rede Wi-Fi ou cabo.
 
@@ -135,20 +154,55 @@ http://192.168.1.100:3000
 
 ## Usuários e acesso
 
-Na tela de login, o usuário digita seu **email corporativo**. Não há senha — o controle de acesso é feito pelo email cadastrado.
+Na tela de login, o usuário informa seu **email corporativo** e sua **senha**. O sistema valida as credenciais no servidor — a senha nunca trafega em texto puro após o login.
 
 ### Perfis de acesso
 
 | Perfil | O que pode fazer |
 |---|---|
-| **Administrador** | Tudo — incluindo gerenciar a equipe, ver todas as tarefas e acessar relatórios |
-| **Colaborador** | Criar tarefas, gerenciar suas próprias tarefas, comentar e usar o Kanban |
+| **Administrador** | Tudo — incluindo gerenciar a equipe, redefinir senhas, ver todas as tarefas e acessar relatórios |
+| **Colaborador** | Criar tarefas, gerenciar suas próprias tarefas, comentar, usar o Kanban e trocar a própria senha |
 
 ### Administrador padrão
 
 ```
-Email: mayara@corp.com
+Email: admin@corp.com
+Senha: admin123
 ```
+
+> **Importante:** troque a senha do administrador padrão logo no primeiro acesso. O sistema solicitará isso automaticamente.
+
+---
+
+## Login e segurança
+
+### Como funciona o login
+
+1. O usuário informa email e senha na tela de login
+2. O servidor valida a senha usando **bcrypt** — a comparação leva ~100ms intencionalmente para dificultar ataques de força bruta
+3. Se as credenciais estiverem corretas, o servidor gera um **token de sessão** de 256 bits e o devolve ao cliente
+4. Todas as operações subsequentes (criar tarefas, gerenciar usuários, etc.) são validadas pelo token no servidor
+5. O token é invalidado quando o usuário clica em **Sair** ou o servidor reinicia
+
+### Armazenamento de senhas
+
+As senhas **nunca são salvas em texto puro**. O sistema armazena apenas o hash gerado pelo bcrypt, que é uma transformação irreversível. Mesmo quem tiver acesso direto ao `users.json` não consegue descobrir as senhas originais.
+
+### Troca de senha (qualquer usuário)
+
+1. Clique em **🔒 Trocar senha** na sidebar
+2. Informe a senha atual
+3. Informe e confirme a nova senha (mínimo 6 caracteres)
+4. Clique em **Salvar nova senha**
+
+### Redefinição de senha (apenas administradores)
+
+1. Clique em **Equipe** na sidebar
+2. Clique em **Redefinir senha** no card do funcionário
+3. Defina e confirme a nova senha
+4. Clique em **Redefinir senha**
+
+O usuário cuja senha foi redefinida será solicitado a criar uma nova senha no próximo login.
 
 ---
 
@@ -157,22 +211,26 @@ Email: mayara@corp.com
 Apenas administradores têm acesso à aba **Equipe** na sidebar.
 
 ### Adicionar funcionário
+
 1. Clique em **Equipe** na sidebar
 2. Clique em **+ Adicionar funcionário**
 3. Preencha nome, email, cargo e perfil de acesso
-4. As iniciais do avatar são preenchidas automaticamente
-5. Escolha uma cor para o avatar
-6. Clique em **Adicionar funcionário**
+4. Defina uma **senha inicial** para o novo funcionário (mínimo 6 caracteres)
+5. As iniciais do avatar são preenchidas automaticamente
+6. Escolha uma cor para o avatar
+7. Clique em **Adicionar funcionário**
 
-O novo funcionário aparece instantaneamente para todos e já pode fazer login.
+O novo funcionário aparece instantaneamente para todos e já pode fazer login com a senha definida. Na primeira entrada, o sistema pedirá que ele troque a senha.
 
 ### Editar funcionário
+
 1. Clique em **Equipe** na sidebar
 2. Clique em **Editar** no card do funcionário
-3. Altere os campos desejados
+3. Altere os campos desejados (nome, email, cargo, perfil)
 4. Clique em **Salvar alterações**
 
 ### Remover funcionário
+
 1. Clique em **Equipe** na sidebar
 2. Clique em **Remover** no card do funcionário
 3. Confirme a remoção
@@ -183,6 +241,7 @@ O novo funcionário aparece instantaneamente para todos e já pode fazer login.
 - Não é possível remover a própria conta
 - Deve existir sempre ao menos um administrador
 - Emails duplicados são bloqueados
+- O campo de senha nunca é editável pela tela de edição — use **Redefinir senha** para alterar a senha de um funcionário
 
 ---
 
@@ -236,11 +295,11 @@ O novo funcionário aparece instantaneamente para todos e já pode fazer login.
 
 ```
 taskflow-server-v2/
-├── server.js       → servidor Node.js (Express + Socket.io)
+├── server.js       → servidor Node.js (Express + Socket.io + bcrypt)
 ├── index.html      → interface completa do TaskFlow
 ├── package.json    → dependências do projeto
 ├── tasks.json      → tarefas salvas (gerado automaticamente)
-├── users.json      → usuários cadastrados (gerado automaticamente)
+├── users.json      → usuários cadastrados com hash de senha
 └── README.md       → este arquivo
 ```
 
@@ -251,20 +310,27 @@ taskflow-server-v2/
 Todos os dados são salvos automaticamente em arquivos JSON:
 
 - **tasks.json** — todas as tarefas, comentários e histórico
-- **users.json** — todos os usuários cadastrados
+- **users.json** — todos os usuários cadastrados (senhas armazenadas como hash bcrypt)
 
-Se o servidor for reiniciado, os dados são preservados. Se os arquivos forem apagados, o sistema recria com os dados de demonstração padrão.
+Se o servidor for reiniciado, os dados são preservados. Se o `users.json` for apagado, o sistema recria com o administrador padrão (`admin@corp.com` / `admin123`).
 
 > Faça backup desses dois arquivos regularmente para não perder os dados.
 
 ---
 
-##  Dúvidas comuns
+## Dúvidas comuns
 
 <details>
 <summary><strong>O computador host precisa ficar ligado?</strong></summary>
 
-Sim. Enquanto o servidor (`node server.js`) estiver rodando, todos os outros podem acessar. Se o computador desligar ou o terminal fechar, os outros perdem a conexão. Os dados ficam salvos nos arquivos e voltam quando o servidor reiniciar.
+Sim. Enquanto o servidor (`node server.js`) estiver rodando, todos os outros podem acessar. Se o computador desligar ou o terminal fechar, os outros perdem a conexão. Os dados ficam salvos nos arquivos e voltam quando o servidor reiniciar. As sessões de login são perdidas ao reiniciar — os usuários precisarão fazer login novamente.
+
+</details>
+
+<details>
+<summary><strong>Esqueci a senha de um usuário — o que faço?</strong></summary>
+
+Se você for administrador, acesse **Equipe**, clique em **Redefinir senha** no card do usuário e defina uma nova senha. Se for a senha do próprio admin e não houver outro admin, pare o servidor, edite o `users.json` diretamente e substitua o campo `passwordHash` pelo hash padrão: `$2b$10$u9a6mjc8e1n3ZL2tNTS/4OPDTmoD.E/gHUYz/tP72HzL3vDND/u7a` (corresponde à senha `admin123`). Salve e reinicie o servidor.
 
 </details>
 
@@ -278,7 +344,7 @@ Não na configuração atual. O sistema funciona apenas na rede local (mesmo Wi-
 <details>
 <summary><strong>O que acontece se eu fechar o terminal acidentalmente?</strong></summary>
 
-Basta abrir o `cmd` novamente, navegar até a pasta com `cd` e rodar `node server.js` de novo. Os dados em `tasks.json` e `users.json` não são perdidos.
+Basta abrir o `cmd` novamente, navegar até a pasta com `cd` e rodar `node server.js` de novo. Os dados em `tasks.json` e `users.json` não são perdidos. Os usuários precisarão fazer login novamente pois as sessões ficam em memória.
 
 </details>
 
@@ -309,7 +375,7 @@ Pare o servidor com `Ctrl + C`, edite o arquivo `users.json` diretamente com o B
 
 Em caso de dúvidas ou problemas, verifique:
 
-1. O servidor está rodando? (node server.js no terminal)
+1. O servidor está rodando? (`node server.js` no terminal)
 2. Os computadores estão na mesma rede?
 3. O firewall do Windows está bloqueando a porta 3000?
 
