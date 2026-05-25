@@ -1,24 +1,13 @@
 [
   {
     "id": "u1",
-    "name": "Leonardo",
-    "email": "leonardo@corp.com",
+    "name": "Admin",
+    "email": "admin@corp.com",
     "role": "admin",
     "title": "Administrador do Sistema",
-    "av": "LE",
+    "av": "AD",
     "clr": "#960808",
     "passwordHash": "$2b$10$c1MRjnd8hqKAXqqSvrWcdOh6yvCB6J2x46.KYtcUkuf6fiUlTSAUa",
-    "mustChangePassword": false
-  },
-  {
-    "id": "u2",
-    "name": "Mayara Marques",
-    "email": "mayara@corp.com",
-    "role": "collab",
-    "title": "Financeiro",
-    "av": "MM",
-    "clr": "#f90179",
-    "passwordHash": "$2b$10$7NO3R00bLc/MnJ.PnVEWTuQiMqqqEp1tv/oe.ivYzmbKgu4zJYu3K",
     "mustChangePassword": false
   }
 ]
