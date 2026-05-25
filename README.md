@@ -8,7 +8,7 @@
 
 O TaskFlow Corporate é uma aplicação web de gerenciamento de tarefas desenvolvida para equipes que trabalham no mesmo escritório ou rede local. Ele permite que todos os membros da equipe vejam, criem e atualizem tarefas em tempo real, além de visualizarem quem está online e o que cada pessoa está fazendo no momento.
 
-O sistema foi construído do zero como um único arquivo HTML, sem frameworks pesados, e evoluiu para uma aplicação cliente-servidor completa com Node.js e Socket.io para suportar múltiplos usuários simultâneos — agora com autenticação por senha e tokens de sessão seguros.
+O sistema foi construído do zero como um único arquivo HTML, sem frameworks pesados, e evoluiu para uma aplicação cliente-servidor completa com Node.js e Socket.io para suportar múltiplos usuários simultâneos — agora com autenticação por senha, tokens de sessão seguros e proteção automática contra perda de dados.
 
 ---
 
@@ -23,7 +23,7 @@ O sistema foi construído do zero como um único arquivo HTML, sem frameworks pe
 | Tempo real | Socket.io | Sincronização entre usuários |
 | Segurança | bcrypt + crypto | Hash de senhas e tokens de sessão |
 | Fontes | Google Fonts | Playfair Display + IBM Plex Sans |
-| Persistência | JSON no disco | tasks.json e users.json |
+| Persistência | JSON no disco | tasks.json e users.json com escrita atômica |
 
 ### Arquitetura
 
@@ -38,6 +38,7 @@ O sistema foi construído do zero como um único arquivo HTML, sem frameworks pe
 │   │                     │                │ │
 │   │  tasks.json  (BD)   │                │ │
 │   │  users.json  (BD)   │                │ │
+│   │  backups/    (BD)   │                │ │
 │   └─────────────────────┘                │ │
 │             ▲                            │ │
 │             │ Socket.io (tempo real)     │ │
@@ -63,6 +64,9 @@ O sistema foi construído do zero como um único arquivo HTML, sem frameworks pe
 - **Tokens de sessão** — cada login gera um token seguro que valida todas as operações
 - **Troca de senha** — usuários podem trocar a própria senha a qualquer momento
 - **Redefinição de senha** — administradores podem redefinir a senha de qualquer usuário
+- **Escrita atômica** — gravação segura que nunca corrompe dados mesmo com queda de energia
+- **Backup automático** — cópias dos dados criadas a cada 30 minutos automaticamente
+- **Recuperação automática** — ao reiniciar, o servidor tenta restaurar dados de backups se necessário
 - **Tema claro/escuro** — alternável pelo botão na topbar ou pelo atalho Ctrl + Shift + D
 - **Zoom** — controle de escala da interface para melhor legibilidade
 - **Histórico** — cada tarefa registra todas as ações realizadas
@@ -206,6 +210,43 @@ O usuário cuja senha foi redefinida será solicitado a criar uma nova senha no 
 
 ---
 
+## Proteção de dados contra quedas de energia
+
+O sistema possui três camadas de proteção para garantir que nenhum dado seja perdido mesmo em caso de queda de energia ou desligamento inesperado do servidor.
+
+### Escrita atômica
+
+A cada alteração (nova tarefa, comentário, edição), o sistema grava os dados em um arquivo temporário antes de substituir o arquivo principal. Só quando a gravação estiver 100% completa o arquivo original é substituído. Isso garante que uma queda de energia no meio de uma gravação **nunca corrompe os dados** — o pior caso é perder apenas a última ação realizada.
+
+### Backup automático a cada 30 minutos
+
+O servidor cria automaticamente uma pasta `backups/` e salva cópias dos arquivos de dados com timestamp no nome:
+
+```
+backups/
+  tasks-2026-05-25T14-30-00.json
+  users-2026-05-25T14-30-00.json
+  tasks-2026-05-25T15-00-00.json
+  users-2026-05-25T15-00-00.json
+  ...
+```
+
+Os últimos **48 backups** são mantidos (equivalente a 24 horas de histórico). Os mais antigos são removidos automaticamente.
+
+### Recuperação automática na inicialização
+
+Se o servidor reiniciar e encontrar um arquivo corrompido, ele tenta recuperar os dados automaticamente nessa ordem:
+
+1. O arquivo temporário `.tmp` da última gravação interrompida
+2. O backup mais recente da pasta `backups/`
+3. Se nada funcionar, começa com os dados padrão
+
+Quando uma recuperação ocorre, o servidor exibe uma mensagem de aviso no terminal informando de qual fonte os dados foram restaurados.
+
+> **Dica:** a pasta `backups/` também pode ser copiada manualmente para um pen drive ou HD externo como backup adicional.
+
+---
+
 ## Gerenciamento de equipe
 
 Apenas administradores têm acesso à aba **Equipe** na sidebar.
@@ -300,6 +341,7 @@ taskflow-server-v2/
 ├── package.json    → dependências do projeto
 ├── tasks.json      → tarefas salvas (gerado automaticamente)
 ├── users.json      → usuários cadastrados com hash de senha
+├── backups/        → backups automáticos com timestamp (gerado automaticamente)
 └── README.md       → este arquivo
 ```
 
@@ -307,14 +349,15 @@ taskflow-server-v2/
 
 ## Persistência de dados
 
-Todos os dados são salvos automaticamente em arquivos JSON:
+Todos os dados são salvos automaticamente em arquivos JSON com escrita atômica:
 
 - **tasks.json** — todas as tarefas, comentários e histórico
 - **users.json** — todos os usuários cadastrados (senhas armazenadas como hash bcrypt)
+- **backups/** — cópias automáticas geradas a cada 30 minutos, mantendo as últimas 24 horas
 
 Se o servidor for reiniciado, os dados são preservados. Se o `users.json` for apagado, o sistema recria com o administrador padrão (`admin@corp.com` / `admin123`).
 
-> Faça backup desses dois arquivos regularmente para não perder os dados.
+> Para um backup extra de segurança, copie a pasta `backups/` para um pen drive ou HD externo regularmente.
 
 ---
 
@@ -324,6 +367,13 @@ Se o servidor for reiniciado, os dados são preservados. Se o `users.json` for a
 <summary><strong>O computador host precisa ficar ligado?</strong></summary>
 
 Sim. Enquanto o servidor (`node server.js`) estiver rodando, todos os outros podem acessar. Se o computador desligar ou o terminal fechar, os outros perdem a conexão. Os dados ficam salvos nos arquivos e voltam quando o servidor reiniciar. As sessões de login são perdidas ao reiniciar — os usuários precisarão fazer login novamente.
+
+</details>
+
+<details>
+<summary><strong>Houve uma queda de energia — os dados foram perdidos?</strong></summary>
+
+Provavelmente não. O sistema usa escrita atômica para garantir que os arquivos nunca fiquem corrompidos. Ao reiniciar o servidor com `node server.js`, ele carrega os dados automaticamente. Se por algum motivo o arquivo principal estiver corrompido, o servidor tenta recuperar do arquivo temporário `.tmp` ou do backup mais recente na pasta `backups/` — e exibe uma mensagem no terminal informando o que foi restaurado.
 
 </details>
 
