@@ -84,20 +84,14 @@ const DEFAULT_USERS = [
 ];
 
 function loadUsers() {
-  try {
-    if (fs.existsSync(USERS_FILE)) {
-      const loaded = JSON.parse(fs.readFileSync(USERS_FILE, "utf8"));
-      // Garante que sempre existe ao menos um admin com senha
-      const hasAdmin = loaded.some(u => u.role === "admin" && u.passwordHash);
-      if (hasAdmin) return loaded;
-    }
-  } catch(e) { console.error("Erro ao carregar users.json:", e.message); }
+  const loaded = loadFile(USERS_FILE);
+  if (loaded && loaded.some(u => u.role === "admin" && u.passwordHash))
+    return loaded;
   return DEFAULT_USERS;
 }
 
 function saveUsers() {
-  try { fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), "utf8"); }
-  catch(e) { console.error("Erro ao salvar users.json:", e.message); }
+  atomicWrite(USERS_FILE, JSON.stringify(users, null, 2));
 }
 
 /* Retorna versão "pública" do usuário (sem passwordHash) para o cliente */
@@ -110,17 +104,104 @@ function publicUsers() { return users.map(publicUser); }
 /* ══════════════════════════════════════════════════════════════
    TAREFAS
 ══════════════════════════════════════════════════════════════ */
-function loadTasks() {
+function loadFile(filePath) {
+  // 1. Tenta o arquivo principal
   try {
-    if (fs.existsSync(TASKS_FILE))
-      return JSON.parse(fs.readFileSync(TASKS_FILE, "utf8"));
-  } catch(e) { console.error("Erro ao carregar tasks.json:", e.message); }
-  return [];
+    if (fs.existsSync(filePath))
+      return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch(e) {
+    console.error(`Erro ao carregar ${path.basename(filePath)}:`, e.message);
+  }
+  // 2. Tenta o .tmp (gravação interrompida por queda de energia)
+  const tmp = filePath + ".tmp";
+  try {
+    if (fs.existsSync(tmp)) {
+      const data = JSON.parse(fs.readFileSync(tmp, "utf8"));
+      console.warn(`[RECOVER] Recuperado de ${path.basename(tmp)}`);
+      return data;
+    }
+  } catch(_) {}
+  // 3. Tenta o backup mais recente
+  try {
+    const name = path.basename(filePath, ".json");
+    if (fs.existsSync(BACKUP_DIR)) {
+      const bkps = fs.readdirSync(BACKUP_DIR)
+        .filter(f => f.startsWith(name + "-")).sort();
+      if (bkps.length > 0) {
+        const latest = path.join(BACKUP_DIR, bkps[bkps.length - 1]);
+        const data = JSON.parse(fs.readFileSync(latest, "utf8"));
+        console.warn(`[RECOVER] Restaurado do backup: ${bkps[bkps.length - 1]}`);
+        return data;
+      }
+    }
+  } catch(_) {}
+  return null;
+}
+
+function loadTasks() {
+  return loadFile(TASKS_FILE) || [];
 }
 function saveTasks() {
-  try { fs.writeFileSync(TASKS_FILE, JSON.stringify(tasks, null, 2), "utf8"); }
-  catch(e) { console.error("Erro ao salvar tasks.json:", e.message); }
+  atomicWrite(TASKS_FILE, JSON.stringify(tasks, null, 2));
 }
+
+/* ══════════════════════════════════════════════════════════════
+   ESCRITA ATÔMICA E BACKUP AUTOMÁTICO
+   
+   atomicWrite: grava em arquivo .tmp e só substitui o original
+   quando a escrita estiver 100% completa. Assim uma queda de
+   energia no meio da gravação nunca corrompe o arquivo anterior
+   — o pior caso é perder apenas a última alteração.
+
+   Backup automático: a cada BACKUP_INTERVAL minutos, copia os
+   arquivos para a pasta /backups com timestamp no nome. Os
+   últimos BACKUP_MAX backups são mantidos; os mais antigos são
+   removidos automaticamente.
+══════════════════════════════════════════════════════════════ */
+const BACKUP_DIR      = path.join(__dirname, "backups");
+const BACKUP_INTERVAL = 30;   // minutos entre cada backup automático
+const BACKUP_MAX      = 48;   // quantos backups manter (48 × 30min = 24h)
+
+function atomicWrite(filePath, content) {
+  const tmp = filePath + ".tmp";
+  try {
+    fs.writeFileSync(tmp, content, "utf8"); // grava no temporário
+    fs.renameSync(tmp, filePath);           // substitui atomicamente
+  } catch(e) {
+    console.error(`Erro ao salvar ${path.basename(filePath)}:`, e.message);
+    // tenta limpar o .tmp se existir
+    try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch(_) {}
+  }
+}
+
+function runBackup() {
+  try {
+    if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR);
+    const ts   = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    const copy = (src, name) => {
+      if (fs.existsSync(src))
+        fs.copyFileSync(src, path.join(BACKUP_DIR, `${name}-${ts}.json`));
+    };
+    copy(TASKS_FILE, "tasks");
+    copy(USERS_FILE, "users");
+
+    // Remove backups antigos além do limite
+    const files = fs.readdirSync(BACKUP_DIR).sort(); // ordem cronológica
+    const taskBkps  = files.filter(f => f.startsWith("tasks-"));
+    const usersBkps = files.filter(f => f.startsWith("users-"));
+    [taskBkps, usersBkps].forEach(list => {
+      while (list.length > BACKUP_MAX) {
+        fs.unlinkSync(path.join(BACKUP_DIR, list.shift()));
+      }
+    });
+    console.log(`[BACKUP] ${ts}`);
+  } catch(e) {
+    console.error("[BACKUP] Erro:", e.message);
+  }
+}
+
+// Inicia o ciclo de backup automático
+setInterval(runBackup, BACKUP_INTERVAL * 60 * 1000);
 
 /* ══════════════════════════════════════════════════════════════
    ESTADO EM MEMÓRIA
