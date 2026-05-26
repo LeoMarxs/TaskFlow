@@ -1605,7 +1605,7 @@ function taskCardHTML(t, draggable=false){
         <span style="font-size:13px;font-weight:500;line-height:1.45;color:${t.status==="done"?"var(--tx3)":"var(--tx)"};text-decoration:${t.status==="done"?"line-through":"none"}">${esc(t.title)}</span>
         <span class="bdg ${PBC[t.priority]}" style="flex-shrink:0">${PL[t.priority]}</span>
       </div>
-      ${t.desc ? `<p class="clamp2" style="font-size:12px;color:var(--tx3);margin-bottom:8px;line-height:1.55">${esc(t.desc)}</p>` : ""}
+      ${t.desc ? `<p class="clamp2" style="font-size:12px;color:var(--tx3);margin-bottom:8px;line-height:1.55;white-space:pre-line">${esc(t.desc)}</p>` : ""}
       ${t.tags?.length ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:9px">${t.tags.map(tg=>`<span class="tag">${esc(tg)}</span>`).join("")}</div>` : ""}
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
         <div style="display:flex;align-items:center;gap:6px">${avHTML(u,22,true)}<span style="font-size:11px;color:var(--tx3)">${esc(u?.name||"—")}</span></div>
@@ -1890,7 +1890,7 @@ function renderTaskDetail(taskId, editing){
       <span class="status-chip status-${t.status}">${SIC[t.status]} ${SL[t.status]}</span>
       ${od ? `<span class="bdg bdg-H">! Atrasada</span>` : ""}
     </div>
-    ${t.desc ? `<p style="font-size:13px;color:var(--tx2);line-height:1.7;margin-bottom:16px;padding:12px 14px;background:var(--bg);border-radius:var(--rs);border:1px solid var(--bdr)">${esc(t.desc)}</p>` : ""}
+    ${t.desc ? `<p style="font-size:13px;color:var(--tx2);line-height:1.7;margin-bottom:16px;padding:12px 14px;background:var(--bg);border-radius:var(--rs);border:1px solid var(--bdr);white-space:pre-line">${esc(t.desc)}</p>` : ""}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
       <div class="meta-box">
         <p class="modal-section-title">Responsável</p>
