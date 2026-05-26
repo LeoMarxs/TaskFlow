@@ -96,12 +96,9 @@
    que multiplica esse valor via JavaScript (applyZoom).
 ================================================================ */
 html{ scroll-behavior:smooth; }
-html{
-  font-size:14px;
-}
-body{
+html,body{
   background:var(--bg);color:var(--tx);
-  font-family:'IBM Plex Sans',sans-serif;font-size:1rem;
+  font-family:'IBM Plex Sans',sans-serif;font-size:14px;
   transition:background .25s,color .25s;
   min-height:100%;
 }
@@ -304,6 +301,27 @@ button:disabled{ opacity:.38;cursor:not-allowed;pointer-events:none }
 .tc:hover{ box-shadow:var(--sh2);transform:translateY(-2px);border-color:var(--bdr2) }
 .tc.done-card{ opacity:.7 } /* tarefa concluída aparece mais apagada */
 .tc.done-card:hover{ opacity:1 }
+/* Destaque de prazo nos cards */
+.tc.is-late{ border-color:var(--red-bdr) !important;background:var(--red-bg) !important }
+.tc.is-late::before{ background:var(--red) !important }
+.tc.is-soon{ border-color:var(--amb-bdr) !important;background:var(--amb-bg) !important }
+.tc.is-soon::before{ background:var(--amb) !important }
+/* Banner de alerta de prazos no dashboard */
+.deadline-banner{ border-radius:var(--r);padding:14px 16px;margin-bottom:18px;border:1px solid }
+.deadline-banner.late{ background:var(--red-bg);border-color:var(--red-bdr) }
+.deadline-banner.soon{ background:var(--amb-bg);border-color:var(--amb-bdr) }
+.deadline-banner-title{ font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:7px }
+.deadline-banner.late .deadline-banner-title{ color:var(--red) }
+.deadline-banner.soon .deadline-banner-title{ color:var(--amb) }
+.deadline-row{ display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid rgba(255,255,255,.05);cursor:pointer }
+.deadline-row:first-of-type{ border-top:none }
+.deadline-row:hover .deadline-row-title{ text-decoration:underline }
+.deadline-row-title{ font-size:12px;font-weight:500;flex:1;min-width:0 }
+.late .deadline-row-title{ color:var(--tx) }
+.soon .deadline-row-title{ color:var(--tx) }
+.deadline-row-date{ font-size:11px;font-weight:600;flex-shrink:0 }
+.late .deadline-row-date{ color:var(--red) }
+.soon .deadline-row-date{ color:var(--amb) }
 
 /* ================================================================
    MODAL
@@ -868,6 +886,7 @@ socket.on("task_created", (task) => {
   TASKS.unshift(task);
   renderContent();
   pushNotif(`Nova tarefa: "${task.title.slice(0,30)}"`, "+");
+  checkDeadlines(); // verifica se a nova tarefa já está atrasada
 });
 
 // Outra máquina atualizou uma tarefa
@@ -908,6 +927,22 @@ const uid     = () => Math.random().toString(36).slice(2,9);
 const fDate   = d  => { if(!d) return "—"; return new Date(d+"T00:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short"}); };
 const fTs     = ts => new Date(ts).toLocaleDateString("pt-BR",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});
 const isLate  = (due,st) => due && st!=="done" && new Date(due+"T23:59:59") < new Date();
+// isSoon: vence hoje ou nos próximos 2 dias (mas ainda não atrasou)
+const isSoon  = (due,st) => {
+  if (!due || st==="done") return false;
+  const now  = new Date();
+  const d    = new Date(due+"T23:59:59");
+  const diff = (d - now) / 86400000; // diferença em dias
+  return diff >= 0 && diff <= 2;
+};
+// daysUntil: texto legível do prazo para o banner
+const daysUntil = (due) => {
+  const diff = Math.ceil((new Date(due+"T23:59:59") - new Date()) / 86400000);
+  if (diff < 0)  return "atrasada";
+  if (diff === 0) return "vence hoje";
+  if (diff === 1) return "vence amanhã";
+  return `vence em ${diff} dias`;
+};
 const getUser = id => USERS.find(u=>u.id===id);
 const getTask = id => TASKS.find(t=>t.id===id);
 const esc     = s  => String(s).replace(/</g,"&lt;").replace(/>/g,"&gt;");
@@ -996,6 +1031,43 @@ function clearNotifBadge(){
   notifCount = 0;
   notifications.forEach(n => n.read = true);
   document.getElementById("notif-dot").classList.add("hidden");
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   VERIFICAÇÃO DE PRAZOS
+   Roda ao fazer login e a cada 30 minutos.
+   Notifica sobre tarefas atrasadas e que vencem hoje/amanhã.
+   Usa um Set para não repetir a mesma notificação na sessão.
+══════════════════════════════════════════════════════════════════ */
+const _notifiedDeadlines = new Set(); // evita notificar a mesma tarefa duas vezes
+
+function checkDeadlines(){
+  if (!me || !TASKS.length) return;
+  const myTasks = TASKS.filter(t => t.assignee === me.id);
+  let lateCount = 0, soonCount = 0;
+
+  myTasks.forEach(t => {
+    const key = t.id + ":" + t.due;
+    if (_notifiedDeadlines.has(key)) return; // já notificou nesta sessão
+
+    if (isLate(t.due, t.status)) {
+      pushNotif(`Atrasada: "${t.title.slice(0,40)}"`, "⚠");
+      toast(`Tarefa atrasada: "${t.title.slice(0,32)}"`, "⚠", "var(--red)");
+      _notifiedDeadlines.add(key);
+      lateCount++;
+    } else if (isSoon(t.due, t.status)) {
+      pushNotif(`${daysUntil(t.due)}: "${t.title.slice(0,40)}"`, "🕐");
+      _notifiedDeadlines.add(key);
+      soonCount++;
+    }
+  });
+
+  // Toast resumido se houver muitas ao mesmo tempo
+  if (lateCount > 2) toast(`${lateCount} tarefas suas estão atrasadas`, "⚠", "var(--red)");
+  if (soonCount > 2) toast(`${soonCount} tarefas suas vencem em breve`, "🕐", "var(--amb)");
+
+  // Atualiza o dashboard se estiver aberto
+  if (currentView === "dashboard") renderContent();
 }
 function openNotifPanel(){
   clearNotifBadge();
@@ -1159,6 +1231,9 @@ async function doLogin(){
     initApp();
     toast(`Bem-vindo(a), ${me.name.split(" ")[0]}!`, "→", "var(--blu)");
     startPresence();
+    // Verifica prazos logo após o login e depois a cada 30 minutos
+    setTimeout(checkDeadlines, 2000);
+    setInterval(checkDeadlines, 30 * 60 * 1000);
     // Se o usuário precisa trocar a senha, abre o modal após breve delay
     if (me.mustChangePassword) {
       setTimeout(() => openChangePasswordModal(true), 600);
@@ -1428,9 +1503,44 @@ function renderDashboard(){
     </div>`;
   }).join("") || `<p style="font-size:12px;color:var(--tx3);font-style:italic">Sem atividade recente.</p>`;
 
+  // Banner de prazos — tarefas atrasadas e vencendo em breve (minhas + todas)
+  const lateTasks = TASKS.filter(t => isLate(t.due, t.status))
+    .sort((a,b) => (a.due||"") < (b.due||"") ? -1 : 1);
+  const soonTasks = TASKS.filter(t => isSoon(t.due, t.status))
+    .sort((a,b) => (a.due||"") < (b.due||"") ? -1 : 1);
+
+  const deadlineRowHTML = (t) => {
+    const u = getUser(t.assignee);
+    return `<div class="deadline-row" onclick="openTaskDetail('${t.id}')">
+      ${avHTML(u, 20, true)}
+      <span class="deadline-row-title truncate">${esc(t.title)}</span>
+      <span class="bdg ${PBC[t.priority]}" style="font-size:10px">${PL[t.priority]}</span>
+      <span class="deadline-row-date">${daysUntil(t.due)}</span>
+    </div>`;
+  };
+
+  const lateBannerHTML = lateTasks.length ? `
+    <div class="deadline-banner late">
+      <div class="deadline-banner-title">
+        <span>⚠</span> ${lateTasks.length} tarefa${lateTasks.length>1?"s":""}  em atraso
+      </div>
+      ${lateTasks.slice(0,5).map(deadlineRowHTML).join("")}
+      ${lateTasks.length > 5 ? `<p style="font-size:11px;color:var(--red);margin-top:8px;opacity:.7">+${lateTasks.length-5} mais — veja a lista completa</p>` : ""}
+    </div>` : "";
+
+  const soonBannerHTML = soonTasks.length ? `
+    <div class="deadline-banner soon">
+      <div class="deadline-banner-title">
+        <span>🕐</span> ${soonTasks.length} tarefa${soonTasks.length>1?"s":" "} com prazo próximo
+      </div>
+      ${soonTasks.slice(0,5).map(deadlineRowHTML).join("")}
+      ${soonTasks.length > 5 ? `<p style="font-size:11px;color:var(--amb);margin-top:8px;opacity:.7">+${soonTasks.length-5} mais — veja a lista completa</p>` : ""}
+    </div>` : "";
+
   return `
     <h2 style="font-size:26px;margin-bottom:4px">Olá, ${esc(me.name.split(" ")[0])}</h2>
     <p style="font-size:13px;color:var(--tx3);margin-bottom:24px;text-transform:capitalize">${dayStr}</p>
+    ${lateBannerHTML}${soonBannerHTML}
     <div class="stat-grid">${stats.map(s=>`<div class="card stat-card" data-icon="${s.icon}"><p class="stat-label">${s.label}</p><p class="stat-val" style="color:${s.clr}">${s.val}</p><p class="stat-sub">${s.sub}</p></div>`).join("")}</div>
     <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-bottom:18px">
       <div class="card" style="padding:18px 20px">
@@ -1485,7 +1595,7 @@ function taskCardHTML(t, draggable=false){
   const od = isLate(t.due, t.status);
   const drag = draggable ? `draggable="true" ondragstart="dragStart(event,'${t.id}')"` : "";
   return `
-    <div class="card tc pri-${t.priority}${t.status==="done"?" done-card":""}" ${drag}
+    <div class="card tc pri-${t.priority}${t.status==="done"?" done-card":""}${isLate(t.due,t.status)?" is-late":isSoon(t.due,t.status)?" is-soon":""}" ${drag}
       onclick="openTaskDetail('${t.id}')"
       style="padding:13px 15px 13px 18px;margin-bottom:${draggable?0:8}px;overflow:hidden"
       role="article" tabindex="0"
