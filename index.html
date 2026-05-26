@@ -194,8 +194,9 @@ button:disabled{ opacity:.38;cursor:not-allowed;pointer-events:none }
 .nav-item{ width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:13px;font-weight:500;color:var(--tx2);transition:all .12s;margin-bottom:2px;cursor:pointer;text-align:left;border:1px solid transparent }
 .nav-item:hover{ background:var(--bg2);color:var(--tx) }
 .nav-item.on{ background:var(--bg2);color:var(--tx);border-color:var(--bdr) }
-.nav-item .nav-icon{ width:18px;text-align:center;font-size:14px;opacity:.6;flex-shrink:0 }
+.nav-item .nav-icon{ width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:.5;transition:opacity .15s }
 .nav-item.on .nav-icon{ opacity:1 }
+.nav-item:hover .nav-icon{ opacity:.85 }
 .nav-section-label{ font-size:10px;font-weight:600;color:var(--tx3);letter-spacing:.07em;text-transform:uppercase;padding:12px 10px 4px;display:block }
 
 /* ================================================================
@@ -1276,11 +1277,12 @@ function initApp(){
 
   // Gera links de navegação filtrados por permissão
   const navDefs = [
-  {id:"dashboard", label:"Dashboard",       icon:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="16" height="16"><rect x="1" y="1" width="13" height="30" rx="2" ry="2"/><rect x="18" y="1" width="13" height="13" rx="2" ry="2"/><rect x="18" y="18" width="13" height="13" rx="2" ry="2"/></svg>`},
-  {id:"all",       label:"Todas as tarefas",icon:"&#8801;", adminOnly:true},
-  {id:"mine",      label:"Minhas tarefas",  icon:"&#9675;"},
-  {id:"kanban",    label:"Kanban Board",    icon:"&#9638;"},
-  {id:"team",      label:"Equipe",          icon:"&#9786;", adminOnly:true},
+  {id:"dashboard", label:"Dashboard", icon:`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`},
+  {id:"all", label:"Todas as tarefas", adminOnly:true, icon:`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><polyline points="3 6 4 7 6 5"/><polyline points="3 12 4 13 6 11"/><polyline points="3 18 4 19 6 17"/></svg>`},
+  {id:"mine", label:"Minhas tarefas", icon:`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`},
+  {id:"kanban", label:"Kanban Board", icon:`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="11" rx="1"/><rect x="17" y="3" width="5" height="15" rx="1"/></svg>`},
+  {id:"team", label:"Equipe", adminOnly:true, icon:`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`},
+  {id:"reports", label:"Relatórios", adminOnly:true, icon:`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`},
   ].filter(n => !n.adminOnly || me.role==="admin");
 
   document.getElementById("nav-links").innerHTML = navDefs.map(n=>`
@@ -1383,6 +1385,7 @@ function renderContent(){
   else if(currentView==="all"||currentView==="mine") next = renderList();
   else if(currentView==="kanban")             next = renderKanban();
   else if(currentView==="team")               next = renderTeam();
+  else if(currentView==="reports")            next = renderReports();
   if(next !== c.innerHTML){
     c.innerHTML = next;
     c.classList.remove("fi"); void c.offsetWidth; c.classList.add("fi");
@@ -2551,6 +2554,478 @@ document.addEventListener("keydown", e=>{
    4. initLogin → renderiza lista de usuários atualizada
    As tarefas chegam via socket.on("init") após o login.
 ══════════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════
+   VIEW RELATÓRIOS
+   Permite ao administrador filtrar tarefas por período e responsável
+   e gerar um PDF profissional com resumo executivo + desempenho da
+   equipe + lista detalhada de tarefas. Usa window.print() com uma
+   folha de estilo @media print dedicada — sem dependências externas.
+══════════════════════════════════════════════════════════════════ */
+function renderReports() {
+  const today = new Date().toISOString().slice(0, 10);
+  const monthStart = today.slice(0, 8) + "01";
+  return `
+  <div style="max-width:720px">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:28px">
+      <div>
+        <h2 style="font-size:22px;margin-bottom:4px">Relatórios</h2>
+        <p style="font-size:13px;color:var(--tx3)">Gere PDFs para impressão ou envio</p>
+      </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card" style="padding:20px 24px;margin-bottom:20px">
+      <p style="font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:14px;letter-spacing:.04em;text-transform:uppercase">Configurar relatório</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px">
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:5px;letter-spacing:.04em">DATA INICIAL</label>
+          <input type="date" id="rpt-from" value="${monthStart}" max="${today}"/>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:5px;letter-spacing:.04em">DATA FINAL</label>
+          <input type="date" id="rpt-to" value="${today}" max="${today}"/>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:5px;letter-spacing:.04em">RESPONSÁVEL</label>
+          <select id="rpt-user">
+            <option value="all">Toda a equipe</option>
+            ${USERS.map(u => `<option value="${u.id}">${esc(u.name)}</option>`).join("")}
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:5px;letter-spacing:.04em">STATUS</label>
+          <select id="rpt-status">
+            <option value="all">Todos</option>
+            <option value="pending">Pendente</option>
+            <option value="in_progress">Em Progresso</option>
+            <option value="done">Concluída</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--tx2);display:block;margin-bottom:5px;letter-spacing:.04em">PRIORIDADE</label>
+          <select id="rpt-priority">
+            <option value="all">Todas</option>
+            <option value="high">Alta</option>
+            <option value="medium">Média</option>
+            <option value="low">Baixa</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Preview -->
+    <div class="card" style="padding:20px 24px;margin-bottom:20px" id="rpt-preview-card">
+      <p style="font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:14px;letter-spacing:.04em;text-transform:uppercase">Prévia</p>
+      <div id="rpt-preview">
+        <p style="font-size:13px;color:var(--tx3);font-style:italic">Configure os filtros e clique em "Gerar prévia" para visualizar.</p>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-G" onclick="buildReportPreview()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Gerar prévia
+      </button>
+      <button class="btn btn-P" onclick="generatePDF()" id="rpt-print-btn" disabled style="opacity:.4;cursor:not-allowed">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Imprimir / Salvar PDF
+      </button>
+      <button class="btn btn-G" onclick="generateCSV()" id="rpt-csv-btn" disabled style="opacity:.4;cursor:not-allowed">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Exportar CSV
+      </button>
+    </div>
+  </div>`;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   buildReportPreview — filtra as tarefas e monta a prévia no painel
+────────────────────────────────────────────────────────────────── */
+function getReportTasks() {
+  const from     = document.getElementById("rpt-from")?.value;
+  const to       = document.getElementById("rpt-to")?.value;
+  const userId   = document.getElementById("rpt-user")?.value;
+  const status   = document.getElementById("rpt-status")?.value;
+  const priority = document.getElementById("rpt-priority")?.value;
+
+  return TASKS.filter(t => {
+    // Usa a data de criação (primeiro history) para filtrar por período
+    const created = t.history?.[0]?.ts ? new Date(t.history[0].ts) : null;
+    if (from && created && created < new Date(from + "T00:00:00")) return false;
+    if (to   && created && created > new Date(to   + "T23:59:59")) return false;
+    if (userId !== "all"   && t.assignee !== userId)  return false;
+    if (status !== "all"   && t.status   !== status)  return false;
+    if (priority !== "all" && t.priority !== priority) return false;
+    return true;
+  });
+}
+
+function buildReportPreview() {
+  const tasks    = getReportTasks();
+  const from     = document.getElementById("rpt-from")?.value;
+  const to       = document.getElementById("rpt-to")?.value;
+  const userId   = document.getElementById("rpt-user")?.value;
+  const preview  = document.getElementById("rpt-preview");
+  const printBtn = document.getElementById("rpt-print-btn");
+
+  if (!preview) return;
+
+  const done    = tasks.filter(t => t.status === "done").length;
+  const inprog  = tasks.filter(t => t.status === "in_progress").length;
+  const pending = tasks.filter(t => t.status === "pending").length;
+  const late    = tasks.filter(t => isLate(t.due, t.status)).length;
+  const pct     = tasks.length ? Math.round(done / tasks.length * 100) : 0;
+
+  // Desempenho por membro
+  const memberRows = USERS
+    .filter(u => userId === "all" || u.id === userId)
+    .map(u => {
+      const ut  = tasks.filter(t => t.assignee === u.id);
+      const ud  = ut.filter(t => t.status === "done").length;
+      const ul  = ut.filter(t => isLate(t.due, t.status)).length;
+      const upp = ut.length ? Math.round(ud / ut.length * 100) : 0;
+      return { u, total: ut.length, done: ud, late: ul, pct: upp };
+    })
+    .filter(r => r.total > 0)
+    .sort((a, b) => b.pct - a.pct);
+
+  const memberHTML = memberRows.map(r => `
+    <tr>
+      <td style="padding:8px 10px;font-size:13px;font-weight:500">${esc(r.u.name)}</td>
+      <td style="padding:8px 10px;font-size:13px;text-align:center">${r.total}</td>
+      <td style="padding:8px 10px;font-size:13px;text-align:center;color:#276645;font-weight:600">${r.done}</td>
+      <td style="padding:8px 10px;font-size:13px;text-align:center;color:#9A5B1E">${r.total - r.done}</td>
+      <td style="padding:8px 10px;font-size:13px;text-align:center;color:#B03060">${r.late}</td>
+      <td style="padding:8px 10px;font-size:13px;text-align:center;font-weight:700;color:${r.pct>=70?"#276645":r.pct>=40?"#9A5B1E":"#B03060"}">${r.pct}%</td>
+    </tr>`).join("");
+
+  // Lista de tarefas
+  const sortedTasks = [...tasks].sort((a, b) => {
+    const so = {done:2, in_progress:1, pending:0};
+    return (so[a.status]||0) - (so[b.status]||0) || (a.due||"9999").localeCompare(b.due||"9999");
+  });
+
+  const taskRows = sortedTasks.map(t => {
+    const u  = getUser(t.assignee);
+    const st = {done:"Concluída", in_progress:"Em Progresso", pending:"Pendente"};
+    const pr = {high:"Alta", medium:"Média", low:"Baixa"};
+    const stClr = {done:"#276645", in_progress:"#1A4E8A", pending:"#9A5B1E"};
+    const late  = isLate(t.due, t.status);
+    return `
+    <tr>
+      <td style="padding:8px 10px;font-size:12px;max-width:260px">${esc(t.title)}</td>
+      <td style="padding:8px 10px;font-size:12px;color:${stClr[t.status]};font-weight:600;white-space:nowrap">${st[t.status]}</td>
+      <td style="padding:8px 10px;font-size:12px;white-space:nowrap">${pr[t.priority]}</td>
+      <td style="padding:8px 10px;font-size:12px;white-space:nowrap">${esc(u?.name||"—")}</td>
+      <td style="padding:8px 10px;font-size:12px;white-space:nowrap;color:${late?"#B03060":"inherit"};font-weight:${late?600:400}">${fDate(t.due)||"—"}${late?" ⚠":""}</td>
+    </tr>`;
+  }).join("");
+
+  const periodLabel = from && to
+    ? new Date(from+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short",year:"numeric"}) +
+      " → " +
+      new Date(to+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short",year:"numeric"})
+    : "Todos os períodos";
+
+  preview.innerHTML = `
+    <div style="border-bottom:1px solid var(--bdr);padding-bottom:12px;margin-bottom:16px">
+      <p style="font-size:13px;font-weight:600;color:var(--tx)">${tasks.length} tarefa${tasks.length!==1?"s":""} encontrada${tasks.length!==1?"s":""} · ${periodLabel}</p>
+    </div>
+
+    <!-- Resumo executivo -->
+    <p style="font-size:11px;font-weight:700;color:var(--tx2);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px">Resumo executivo</p>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
+      ${[
+        {l:"Total",       v:tasks.length, c:"var(--tx2)"},
+        {l:"Concluídas",  v:done+" ("+pct+"%)", c:"var(--grn)"},
+        {l:"Em andamento",v:inprog,        c:"var(--blu)"},
+        {l:"Em atraso",   v:late,          c:late>0?"var(--red)":"var(--tx3)"},
+      ].map(s=>`<div style="background:var(--bg);border-radius:var(--r);border:1px solid var(--bdr);padding:12px 14px">
+        <p style="font-size:10px;color:var(--tx3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">${s.l}</p>
+        <p style="font-size:20px;font-weight:700;color:${s.c}">${s.v}</p>
+      </div>`).join("")}
+    </div>
+
+    <!-- Desempenho da equipe -->
+    ${memberHTML ? `
+    <p style="font-size:11px;font-weight:700;color:var(--tx2);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px">Desempenho da equipe</p>
+    <div style="overflow-x:auto;margin-bottom:20px">
+      <table style="width:100%;border-collapse:collapse;font-family:inherit">
+        <thead>
+          <tr style="background:var(--bg);border-bottom:1px solid var(--bdr)">
+            <th style="padding:8px 10px;font-size:11px;font-weight:600;color:var(--tx2);text-align:left">Membro</th>
+            <th style="padding:8px 10px;font-size:11px;font-weight:600;color:var(--tx2);text-align:center">Total</th>
+            <th style="padding:8px 10px;font-size:11px;font-weight:600;color:var(--tx2);text-align:center">Concluídas</th>
+            <th style="padding:8px 10px;font-size:11px;font-weight:600;color:var(--tx2);text-align:center">Pendentes</th>
+            <th style="padding:8px 10px;font-size:11px;font-weight:600;color:var(--tx2);text-align:center">Em atraso</th>
+            <th style="padding:8px 10px;font-size:11px;font-weight:600;color:var(--tx2);text-align:center">Taxa conclusão</th>
+          </tr>
+        </thead>
+        <tbody style="border:1px solid var(--bdr)">${memberHTML}</tbody>
+      </table>
+    </div>` : ""}
+
+    <!-- Lista de tarefas -->
+    ${taskRows ? `
+    <p style="font-size:11px;font-weight:700;color:var(--tx2);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px">Lista de tarefas</p>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-family:inherit">
+        <thead>
+          <tr style="background:var(--bg);border-bottom:1px solid var(--bdr)">
+            <th style="padding:8px 10px;font-size:11px;font-weight:600;color:var(--tx2);text-align:left">Tarefa</th>
+            <th style="padding:8px 10px;font-size:11px;font-weight:600;color:var(--tx2);text-align:left">Status</th>
+            <th style="padding:8px 10px;font-size:11px;font-weight:600;color:var(--tx2);text-align:left">Prioridade</th>
+            <th style="padding:8px 10px;font-size:11px;font-weight:600;color:var(--tx2);text-align:left">Responsável</th>
+            <th style="padding:8px 10px;font-size:11px;font-weight:600;color:var(--tx2);text-align:left">Prazo</th>
+          </tr>
+        </thead>
+        <tbody style="border:1px solid var(--bdr)">${taskRows}</tbody>
+      </table>
+    </div>` : `<p style="font-size:13px;color:var(--tx3);font-style:italic;text-align:center;padding:24px 0">Nenhuma tarefa encontrada para os filtros selecionados.</p>`}
+  `;
+
+  // Habilita os botões de exportação
+  if (printBtn) {
+    printBtn.disabled = false;
+    printBtn.style.opacity = "1";
+    printBtn.style.cursor  = "pointer";
+  }
+  const csvBtn = document.getElementById("rpt-csv-btn");
+  if (csvBtn) {
+    csvBtn.disabled = false;
+    csvBtn.style.opacity = "1";
+    csvBtn.style.cursor  = "pointer";
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   generateCSV — exporta as tarefas filtradas como arquivo .csv
+   compatível com Excel, Google Sheets e qualquer editor de planilhas.
+   Usa BOM UTF-8 (\uFEFF) para garantir acentos corretos no Excel.
+────────────────────────────────────────────────────────────────── */
+function generateCSV() {
+  const tasks    = getReportTasks();
+  const from     = document.getElementById("rpt-from")?.value || "";
+  const to       = document.getElementById("rpt-to")?.value   || "";
+
+  // Cabeçalho das colunas
+  const headers = [
+    "Título", "Status", "Prioridade", "Responsável",
+    "Cargo", "Prazo", "Em atraso", "Tags",
+    "Criada por", "Data de criação", "Comentários", "Descrição"
+  ];
+
+  const stLabel = { done:"Concluída", in_progress:"Em Progresso", pending:"Pendente" };
+  const prLabel = { high:"Alta", medium:"Média", low:"Baixa" };
+
+  // Escapa um campo para CSV (envolve em aspas se tiver vírgula, aspas ou quebra de linha)
+  const csvField = (v) => {
+    const s = String(v ?? "").replace(/"/g, '""');
+    return /[",\n\r]/.test(s) ? `"${s}"` : s;
+  };
+
+  const rows = tasks.map(t => {
+    const assignee  = getUser(t.assignee);
+    const creator   = getUser(t.creator);
+    const createdTs = t.history?.[0]?.ts
+      ? new Date(t.history[0].ts).toLocaleDateString("pt-BR")
+      : "";
+    return [
+      csvField(t.title),
+      csvField(stLabel[t.status] || t.status),
+      csvField(prLabel[t.priority] || t.priority),
+      csvField(assignee?.name || "—"),
+      csvField(assignee?.title || "—"),
+      csvField(t.due ? new Date(t.due+"T12:00:00").toLocaleDateString("pt-BR") : "—"),
+      csvField(isLate(t.due, t.status) ? "Sim" : "Não"),
+      csvField((t.tags || []).join("; ")),
+      csvField(creator?.name || "—"),
+      csvField(createdTs),
+      csvField(t.comments?.length ?? 0),
+      csvField(t.desc || ""),
+    ].join(",");
+  });
+
+  const csv = "\uFEFF" + [headers.map(csvField).join(","), ...rows].join("\r\n");
+
+  // Gera o download diretamente no navegador
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  const periodSlug = (from && to) ? `${from}_${to}` : "completo";
+  a.href     = url;
+  a.download = `taskflow-relatorio-${periodSlug}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast(`CSV exportado — ${tasks.length} tarefa${tasks.length !== 1 ? "s" : ""}`, "↓", "var(--grn)");
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   generatePDF — abre o diálogo de impressão do navegador com uma
+   folha de estilo limpa, fundo branco e tipografia profissional.
+   O usuário pode escolher "Salvar como PDF" na caixa de diálogo.
+────────────────────────────────────────────────────────────────── */
+function generatePDF() {
+  const from     = document.getElementById("rpt-from")?.value;
+  const to       = document.getElementById("rpt-to")?.value;
+  const userId   = document.getElementById("rpt-user")?.value;
+  const userName = userId === "all" ? "Toda a equipe"
+    : (USERS.find(u => u.id === userId)?.name || "");
+  const tasks    = getReportTasks();
+  const preview  = document.getElementById("rpt-preview")?.innerHTML || "";
+
+  const periodLabel = from && to
+    ? new Date(from+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"}) +
+      " até " +
+      new Date(to+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})
+    : "Todos os períodos";
+
+  const generatedAt = new Date().toLocaleString("pt-BR", {
+    day:"2-digit", month:"long", year:"numeric",
+    hour:"2-digit", minute:"2-digit"
+  });
+
+  const win = window.open("", "_blank");
+  win.document.write(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<title>Relatório TaskFlow — ${periodLabel}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'DM Sans',system-ui,sans-serif;
+    font-size:13px;color:#1A1A1A;background:#fff;
+    padding:0;margin:0;line-height:1.6;
+  }
+  /* Capa */
+  .cover{
+    background:linear-gradient(135deg,#0F172A 0%,#1E3A5F 100%);
+    color:#fff;padding:60px 56px 48px;
+    display:flex;flex-direction:column;justify-content:space-between;
+    min-height:220px;
+  }
+  .cover-logo{display:flex;align-items:center;gap:10px;margin-bottom:32px}
+  .cover-logo-box{
+    width:36px;height:36px;background:#C8F04E;border-radius:8px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:13px;font-weight:700;color:#0F172A;letter-spacing:-.5px;
+  }
+  .cover-logo-name{font-size:16px;font-weight:600;color:rgba(255,255,255,.8)}
+  .cover-title{font-size:32px;font-weight:700;color:#fff;margin-bottom:8px;line-height:1.2}
+  .cover-meta{font-size:13px;color:rgba(255,255,255,.55);line-height:1.8}
+  .cover-badge{
+    display:inline-block;background:rgba(200,240,78,.15);
+    border:1px solid rgba(200,240,78,.35);color:#C8F04E;
+    padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;
+    letter-spacing:.06em;text-transform:uppercase;margin-bottom:16px;
+  }
+  /* Corpo */
+  .body{ padding:40px 56px; }
+  h2{
+    font-size:15px;font-weight:700;color:#0F172A;
+    letter-spacing:.06em;text-transform:uppercase;
+    margin:28px 0 14px;padding-bottom:8px;
+    border-bottom:2px solid #E2E8F0;
+  }
+  h2:first-child{margin-top:0}
+  /* Resumo em cards */
+  .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:32px}
+  .summary-card{
+    border:1px solid #E2E8F0;border-radius:8px;padding:16px 18px;
+    background:#F8FAFC;
+  }
+  .summary-label{font-size:10px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+  .summary-val{font-size:26px;font-weight:700;line-height:1}
+  /* Tabelas */
+  table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px}
+  th{
+    background:#F1F5F9;padding:10px 12px;
+    font-size:10px;font-weight:700;color:#475569;
+    text-align:left;text-transform:uppercase;letter-spacing:.05em;
+    border-bottom:2px solid #E2E8F0;
+  }
+  td{padding:9px 12px;border-bottom:1px solid #F1F5F9;vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  tr:nth-child(even) td{background:#FAFBFC}
+  .badge{
+    display:inline-block;padding:2px 9px;border-radius:4px;
+    font-size:10px;font-weight:600;white-space:nowrap;
+  }
+  .badge-done{background:#DCFCE7;color:#166534}
+  .badge-prog{background:#DBEAFE;color:#1E40AF}
+  .badge-pend{background:#FEF9C3;color:#854D0E}
+  .badge-high{background:#FEE2E2;color:#991B1B}
+  .badge-med {background:#FEF3C7;color:#92400E}
+  .badge-low {background:#D1FAE5;color:#065F46}
+  .late{color:#B91C1C;font-weight:600}
+  .pct-high{color:#166534;font-weight:700}
+  .pct-med {color:#92400E;font-weight:700}
+  .pct-low {color:#B91C1C;font-weight:700}
+  /* Rodapé */
+  .footer{
+    margin-top:40px;padding-top:16px;border-top:1px solid #E2E8F0;
+    display:flex;justify-content:space-between;align-items:center;
+    font-size:11px;color:#94A3B8;
+  }
+  @media print{
+    body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .cover{page-break-after:avoid}
+    table{page-break-inside:avoid}
+    tr{page-break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+<div class="cover">
+  <div>
+    <div class="cover-logo">
+      <div class="cover-logo-box">TF</div>
+      <span class="cover-logo-name">TaskFlow Corporate</span>
+    </div>
+    <div class="cover-badge">Relatório Gerencial</div>
+    <div class="cover-title">Relatório de Tarefas<br>e Desempenho</div>
+  </div>
+  <div class="cover-meta">
+    <div><strong style="color:rgba(255,255,255,.7)">Período:</strong> ${periodLabel}</div>
+    <div><strong style="color:rgba(255,255,255,.7)">Equipe:</strong> ${esc(userName)}</div>
+    <div><strong style="color:rgba(255,255,255,.7)">Gerado em:</strong> ${generatedAt}</div>
+    <div><strong style="color:rgba(255,255,255,.7)">Gerado por:</strong> ${esc(me.name)}</div>
+  </div>
+</div>
+<div class="body">
+${preview
+  /* adapta o HTML da prévia para o tema claro do PDF */
+  .replace(/background:var\(--bg\)/g,         "background:#F8FAFC")
+  .replace(/background:var\(--bdr\)/g,        "background:#E2E8F0")
+  .replace(/color:var\(--tx\)/g,              "color:#1A1A1A")
+  .replace(/color:var\(--tx2\)/g,             "color:#475569")
+  .replace(/color:var\(--tx3\)/g,             "color:#94A3B8")
+  .replace(/color:var\(--grn\)/g,             "color:#166534")
+  .replace(/color:var\(--red\)/g,             "color:#B91C1C")
+  .replace(/color:var\(--blu\)/g,             "color:#1E40AF")
+  .replace(/var\(--bdr\)/g,                   "#E2E8F0")
+  .replace(/var\(--r\)/g,                     "8px")
+  .replace(/font-size:20px;font-weight:700/g, "font-size:24px;font-weight:800")
+  /* remove estilos de tema escuro nos cards de resumo */
+  .replace(/background:var\(--surf\)|background:var\(--surf2\)/g, "background:#F8FAFC")
+}
+  <div class="footer">
+    <span>TaskFlow Corporate — Relatório gerado automaticamente</span>
+    <span>${generatedAt}</span>
+  </div>
+</div>
+<script>window.onload = () => { window.print(); }<\/script>
+</body>
+</html>`);
+  win.document.close();
+}
+
 loadTheme();
 loadZoom();
 

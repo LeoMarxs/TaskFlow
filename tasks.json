@@ -7,7 +7,7 @@
     "due": "2026-05-28",
     "assignee": "u1",
     "tags": [],
-    "status": "pending",
+    "status": "done",
     "creator": "u1",
     "comments": [],
     "history": [
@@ -15,6 +15,16 @@
         "a": "criada",
         "u": "u1",
         "ts": 1779827579291
+      },
+      {
+        "a": "status → \"Em Progresso\"",
+        "u": "u1",
+        "ts": 1779828244858
+      },
+      {
+        "a": "status → \"Concluída\"",
+        "u": "u1",
+        "ts": 1779828261566
       }
     ]
   },
@@ -26,7 +36,7 @@
     "due": "2026-05-28",
     "assignee": "u1",
     "tags": [],
-    "status": "pending",
+    "status": "in_progress",
     "creator": "u1",
     "comments": [],
     "history": [
@@ -34,6 +44,11 @@
         "a": "criada",
         "u": "u1",
         "ts": 1779827310016
+      },
+      {
+        "a": "movida → \"Em Progresso\"",
+        "u": "u1",
+        "ts": 1779828272808
       }
     ]
   },
