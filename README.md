@@ -8,7 +8,7 @@
 
 O TaskFlow Corporate é uma aplicação web de gerenciamento de tarefas desenvolvida para equipes que trabalham no mesmo escritório ou rede local. Ele permite que todos os membros da equipe vejam, criem e atualizem tarefas em tempo real, além de visualizarem quem está online e o que cada pessoa está fazendo no momento.
 
-O sistema foi construído do zero como um único arquivo HTML, sem frameworks pesados, e evoluiu para uma aplicação cliente-servidor completa com Node.js e Socket.io para suportar múltiplos usuários simultâneos — agora com autenticação por senha, tokens de sessão seguros e proteção automática contra perda de dados.
+O sistema foi construído do zero como um único arquivo HTML, sem frameworks pesados, e evoluiu para uma aplicação cliente-servidor completa com Node.js e Socket.io para suportar múltiplos usuários simultâneos — agora com autenticação por senha e tokens de sessão seguros.
 
 ---
 
@@ -23,7 +23,7 @@ O sistema foi construído do zero como um único arquivo HTML, sem frameworks pe
 | Tempo real | Socket.io | Sincronização entre usuários |
 | Segurança | bcrypt + crypto | Hash de senhas e tokens de sessão |
 | Fontes | Google Fonts | Playfair Display + IBM Plex Sans |
-| Persistência | JSON no disco | tasks.json e users.json com escrita atômica |
+| Persistência | JSON no disco | tasks.json e users.json |
 
 ### Arquitetura
 
@@ -38,7 +38,6 @@ O sistema foi construído do zero como um único arquivo HTML, sem frameworks pe
 │   │                     │                │ │
 │   │  tasks.json  (BD)   │                │ │
 │   │  users.json  (BD)   │                │ │
-│   │  backups/    (BD)   │                │ │
 │   └─────────────────────┘                │ │
 │             ▲                            │ │
 │             │ Socket.io (tempo real)     │ │
@@ -64,9 +63,7 @@ O sistema foi construído do zero como um único arquivo HTML, sem frameworks pe
 - **Tokens de sessão** — cada login gera um token seguro que valida todas as operações
 - **Troca de senha** — usuários podem trocar a própria senha a qualquer momento
 - **Redefinição de senha** — administradores podem redefinir a senha de qualquer usuário
-- **Escrita atômica** — gravação segura que nunca corrompe dados mesmo com queda de energia
-- **Backup automático** — cópias dos dados criadas a cada 30 minutos automaticamente
-- **Recuperação automática** — ao reiniciar, o servidor tenta restaurar dados de backups se necessário
+- **Relatórios** — geração de relatórios em PDF e exportação em CSV (apenas administradores)
 - **Tema claro/escuro** — alternável pelo botão na topbar ou pelo atalho Ctrl + Shift + D
 - **Zoom** — controle de escala da interface para melhor legibilidade
 - **Histórico** — cada tarefa registra todas as ações realizadas
@@ -137,6 +134,62 @@ Só precisa dos passos **1**, **2** e **4**. O `npm install` não é necessário
 
 ---
 
+## Iniciar o servidor automaticamente com o Windows
+
+Para que o servidor suba sozinho toda vez que o computador ligar, sem precisar abrir o terminal manualmente, use o **Agendador de Tarefas do Windows** — a forma mais robusta, pois funciona mesmo sem nenhum usuário logado.
+
+### Método 1 — Agendador de Tarefas (recomendado)
+
+**1.** Abra o Agendador de Tarefas (Win + R → `taskschd.msc` → Enter)
+
+**2.** Clique em **"Criar Tarefa Básica"** no painel direito
+
+**3.** Preencha os campos:
+- **Nome:** `TaskFlow Server`
+- **Gatilho:** Ao iniciar o computador
+- **Ação:** Iniciar um programa
+- **Programa:** `node`
+- **Argumentos:** `server.js`
+- **Iniciar em:** `C:\caminho\para\sua\pasta\taskflow` ← pasta do projeto
+
+**4.** Antes de finalizar, marque **"Abrir propriedades ao clicar em Concluir"** e na aba **Geral** ative:
+- ✅ Executar mesmo que o usuário não esteja conectado
+- ✅ Executar com privilégios mais altos
+
+O servidor passará a subir automaticamente a cada inicialização do Windows, mesmo sem ninguém fazer login.
+
+### Método 2 — Pasta de inicialização (mais simples)
+
+Esta opção é mais simples, mas só funciona quando um usuário faz login no Windows.
+
+**1.** Crie um arquivo `iniciar.bat` dentro da pasta do projeto com o seguinte conteúdo:
+```bat
+@echo off
+cd /d C:\caminho\para\sua\pasta\taskflow
+node server.js
+```
+
+**2.** Pressione Win + R, digite `shell:startup` e pressione Enter
+
+**3.** Cole um atalho do arquivo `iniciar.bat` dentro dessa pasta
+
+A partir de agora, o servidor iniciará automaticamente sempre que o usuário fizer login no Windows.
+
+### Linux / Mac
+
+Se o servidor rodar em Linux ou Mac, use o **pm2** — um gerenciador de processos que mantém o servidor ativo e o reinicia automaticamente em caso de falha:
+
+```bash
+npm install -g pm2
+pm2 start server.js --name taskflow
+pm2 startup
+pm2 save
+```
+
+Após o `pm2 startup`, o terminal exibirá um comando para executar como superusuário — copie e execute-o para registrar o serviço no sistema. O `pm2 save` garante que o TaskFlow seja restaurado após reinicializações.
+
+---
+
 ## Como a equipe acessa
 
 **1.** Descubra o IP do computador host. No cmd:
@@ -164,7 +217,7 @@ Na tela de login, o usuário informa seu **email corporativo** e sua **senha**. 
 
 | Perfil | O que pode fazer |
 |---|---|
-| **Administrador** | Tudo — incluindo gerenciar a equipe, redefinir senhas, ver todas as tarefas e acessar relatórios |
+| **Administrador** | Tudo — incluindo gerenciar a equipe, redefinir senhas, ver todas as tarefas, acessar relatórios e exportar dados |
 | **Colaborador** | Criar tarefas, gerenciar suas próprias tarefas, comentar, usar o Kanban e trocar a própria senha |
 
 ### Administrador padrão
@@ -210,40 +263,45 @@ O usuário cuja senha foi redefinida será solicitado a criar uma nova senha no 
 
 ---
 
-## Proteção de dados contra quedas de energia
+## Relatórios
 
-O sistema possui três camadas de proteção para garantir que nenhum dado seja perdido mesmo em caso de queda de energia ou desligamento inesperado do servidor.
+Apenas administradores têm acesso à aba **Relatórios** na sidebar.
 
-### Escrita atômica
+### Gerar um relatório
 
-A cada alteração (nova tarefa, comentário, edição), o sistema grava os dados em um arquivo temporário antes de substituir o arquivo principal. Só quando a gravação estiver 100% completa o arquivo original é substituído. Isso garante que uma queda de energia no meio de uma gravação **nunca corrompe os dados** — o pior caso é perder apenas a última ação realizada.
+1. Clique em **Relatórios** na sidebar
+2. Configure os filtros desejados:
+   - **Período** — data inicial e data final
+   - **Responsável** — toda a equipe ou um membro específico
+   - **Status** — todos, pendente, em progresso ou concluída
+   - **Prioridade** — todas, alta, média ou baixa
+3. Clique em **Gerar prévia** para visualizar o relatório na tela
+4. Escolha o formato de exportação:
+   - **Imprimir / Salvar PDF** — abre o diálogo de impressão do navegador; selecione "Salvar como PDF" para gerar o arquivo
+   - **Exportar CSV** — baixa um arquivo `.csv` compatível com Excel e Google Sheets
 
-### Backup automático a cada 30 minutos
+### O que o relatório contém
 
-O servidor cria automaticamente uma pasta `backups/` e salva cópias dos arquivos de dados com timestamp no nome:
+- **Resumo executivo** — total de tarefas, concluídas, em andamento e em atraso
+- **Desempenho da equipe** — tabela por membro com total, concluídas, pendentes, em atraso e taxa de conclusão
+- **Lista de tarefas** — todas as tarefas filtradas com status, prioridade, responsável e prazo
 
-```
-backups/
-  tasks-2026-05-25T14-30-00.json
-  users-2026-05-25T14-30-00.json
-  tasks-2026-05-25T15-00-00.json
-  users-2026-05-25T15-00-00.json
-  ...
-```
+### Colunas do CSV exportado
 
-Os últimos **48 backups** são mantidos (equivalente a 24 horas de histórico). Os mais antigos são removidos automaticamente.
-
-### Recuperação automática na inicialização
-
-Se o servidor reiniciar e encontrar um arquivo corrompido, ele tenta recuperar os dados automaticamente nessa ordem:
-
-1. O arquivo temporário `.tmp` da última gravação interrompida
-2. O backup mais recente da pasta `backups/`
-3. Se nada funcionar, começa com os dados padrão
-
-Quando uma recuperação ocorre, o servidor exibe uma mensagem de aviso no terminal informando de qual fonte os dados foram restaurados.
-
-> **Dica:** a pasta `backups/` também pode ser copiada manualmente para um pen drive ou HD externo como backup adicional.
+| Coluna | Descrição |
+|---|---|
+| Título | Nome da tarefa |
+| Status | Pendente / Em Progresso / Concluída |
+| Prioridade | Alta / Média / Baixa |
+| Responsável | Nome do membro |
+| Cargo | Cargo do responsável |
+| Prazo | Data formatada |
+| Em atraso | Sim / Não |
+| Tags | Separadas por ponto e vírgula |
+| Criada por | Nome de quem criou |
+| Data de criação | Data formatada |
+| Comentários | Quantidade |
+| Descrição | Texto completo |
 
 ---
 
@@ -341,7 +399,6 @@ taskflow-server-v2/
 ├── package.json    → dependências do projeto
 ├── tasks.json      → tarefas salvas (gerado automaticamente)
 ├── users.json      → usuários cadastrados com hash de senha
-├── backups/        → backups automáticos com timestamp (gerado automaticamente)
 └── README.md       → este arquivo
 ```
 
@@ -349,15 +406,14 @@ taskflow-server-v2/
 
 ## Persistência de dados
 
-Todos os dados são salvos automaticamente em arquivos JSON com escrita atômica:
+Todos os dados são salvos automaticamente em arquivos JSON:
 
 - **tasks.json** — todas as tarefas, comentários e histórico
 - **users.json** — todos os usuários cadastrados (senhas armazenadas como hash bcrypt)
-- **backups/** — cópias automáticas geradas a cada 30 minutos, mantendo as últimas 24 horas
 
 Se o servidor for reiniciado, os dados são preservados. Se o `users.json` for apagado, o sistema recria com o administrador padrão (`admin@corp.com` / `admin123`).
 
-> Para um backup extra de segurança, copie a pasta `backups/` para um pen drive ou HD externo regularmente.
+> Faça backup desses dois arquivos regularmente para não perder os dados.
 
 ---
 
@@ -371,9 +427,9 @@ Sim. Enquanto o servidor (`node server.js`) estiver rodando, todos os outros pod
 </details>
 
 <details>
-<summary><strong>Houve uma queda de energia — os dados foram perdidos?</strong></summary>
+<summary><strong>O servidor precisa ser iniciado manualmente toda vez que o computador ligar?</strong></summary>
 
-Provavelmente não. O sistema usa escrita atômica para garantir que os arquivos nunca fiquem corrompidos. Ao reiniciar o servidor com `node server.js`, ele carrega os dados automaticamente. Se por algum motivo o arquivo principal estiver corrompido, o servidor tenta recuperar do arquivo temporário `.tmp` ou do backup mais recente na pasta `backups/` — e exibe uma mensagem no terminal informando o que foi restaurado.
+Não, se você configurar a inicialização automática. Veja a seção **"Iniciar o servidor automaticamente com o Windows"** acima para as instruções completas. O método recomendado é o Agendador de Tarefas, pois sobe o servidor mesmo sem ninguém fazer login.
 
 </details>
 
@@ -394,7 +450,7 @@ Não na configuração atual. O sistema funciona apenas na rede local (mesmo Wi-
 <details>
 <summary><strong>O que acontece se eu fechar o terminal acidentalmente?</strong></summary>
 
-Basta abrir o `cmd` novamente, navegar até a pasta com `cd` e rodar `node server.js` de novo. Os dados em `tasks.json` e `users.json` não são perdidos. Os usuários precisarão fazer login novamente pois as sessões ficam em memória.
+Basta abrir o `cmd` novamente, navegar até a pasta com `cd` e rodar `node server.js` de novo. Os dados em `tasks.json` e `users.json` não são perdidos. Os usuários precisarão fazer login novamente pois as sessões ficam em memória. Para evitar esse problema, configure a inicialização automática conforme descrito acima.
 
 </details>
 
