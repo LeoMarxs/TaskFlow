@@ -1,0 +1,13 @@
+[
+  {
+    "id": "u1",
+    "name": "Admin",
+    "email": "admin@corp.com",
+    "role": "admin",
+    "title": "Administrador do Sistema",
+    "av": "AD",
+    "clr": "#960808",
+    "passwordHash": "$2b$10$gyK.ix2z7MVbNrxIT2ZFQeu84PBycekZermSzDafwieuA7gS9e/2a",
+    "mustChangePassword": false
+  }
+]
